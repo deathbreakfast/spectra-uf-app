@@ -78,6 +78,8 @@ async fn activity_24h_rows(schemas: &[SchemaListItem]) -> Option<u64> {
                 measure_field: None,
                 time_bucket_secs: Some(3600),
                 group_by_field: None,
+                row_fields: Vec::new(),
+                pivot_field: None,
             },
         };
         let Ok(result) = execute_event_aggregate(&router, &request).await else {

@@ -1,7 +1,6 @@
 use leptos::prelude::*;
-use leptos_router::components::A;
-use orbital::components::{SpacingSize, Title3};
-use orbital::primitives::{Card, CardContent, CardHeader, Flex};
+use orbital::components::{Body1, SpacingSize, Title3};
+use orbital::primitives::{Card, CardContent, CardHeader, Flex, Link};
 use spectra_backend::{
     spectra_metric_explore_path, spectra_schema_explore_path, spectra_schema_path,
 };
@@ -46,12 +45,12 @@ pub fn SchemaCard(
                 </CardHeader>
                 <CardContent>
                     <Flex vertical=true gap=SpacingSize::Size80.flex_gap()>
-                        {(!description.is_empty()).then(|| view! { <p>{description}</p> })}
+                        {(!description.is_empty()).then(|| view! { <Body1>{description}</Body1> })}
                         <span id=details_id data-testid=detail_test_id>
-                            <A href=detail_href>"Details"</A>
+                            <Link href=detail_href>"Details"</Link>
                         </span>
                         <span id=explore_id data-testid=explore_test_id>
-                            <A href=href>"Explore"</A>
+                            <Link href=href>"Explore"</Link>
                         </span>
                     </Flex>
                 </CardContent>

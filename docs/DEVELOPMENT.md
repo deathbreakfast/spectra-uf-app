@@ -1,7 +1,6 @@
 # Spectra UF App development map
 
-Canonical tree: `L4-composers/spectra-uf-app/` in the Unified Field monorepo.
-Do not edit the archive copy under `L5-hosts/web-app-template-archive-only/spectra-app/`.
+Paths below are relative to the repository root.
 
 ## Crates
 

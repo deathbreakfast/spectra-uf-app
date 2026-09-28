@@ -1,7 +1,7 @@
 use leptos::prelude::*;
-use leptos_router::components::A;
-use orbital::components::{Card, Title3};
-use orbital::primitives::{Button, ButtonAppearance, Flex};
+use leptos_router::hooks::use_navigate;
+use orbital::components::{Card, CardContent, CardHeader, Title3};
+use orbital::primitives::{Button, ButtonAppearance};
 use spectra_backend::{spectra_metric_explore_path, spectra_schema_explore_path};
 
 #[component]
@@ -17,18 +17,24 @@ pub fn QuickActionsCard(
     } else {
         spectra_schema_explore_path(&name)
     };
+    let navigate = use_navigate();
     view! {
         <Card>
-            <Flex vertical=true>
+            <CardHeader>
                 <Title3>"Explore"</Title3>
-                <A href=href>
-                    <span id="spectra-detail-open-explore" data-testid="spectra-detail-open-explore">
-                        <Button appearance=ButtonAppearance::Primary>
-                            "Open explore"
-                        </Button>
-                    </span>
-                </A>
-            </Flex>
+            </CardHeader>
+            <CardContent>
+                <span id="spectra-detail-open-explore" data-testid="spectra-detail-open-explore">
+                    <Button
+                        appearance=ButtonAppearance::Primary
+                        on:click=move |_| {
+                            navigate(&href, Default::default());
+                        }
+                    >
+                        "Open explore"
+                    </Button>
+                </span>
+            </CardContent>
         </Card>
     }
 }

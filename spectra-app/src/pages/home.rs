@@ -1,11 +1,11 @@
 use leptos::prelude::*;
-use leptos_router::components::A;
 use leptos_router::{hooks::use_navigate, NavigateOptions};
 use orbital::components::{Caption1, ContentContainer, EmptyState, SpacingSize, StatCard, Title3};
 use orbital::primitives::{
-    Body1, Button, ButtonAppearance, Card, CardContent, CardHeader, Flex, FlexWrap, SearchBox,
-    SearchBoxAppearance, SearchBoxBind,
+    Body1, Button, ButtonAppearance, Card, CardContent, CardHeader, Flex, FlexWrap, Link,
+    MessageBar, MessageBarIntent, SearchBox, SearchBoxAppearance, SearchBoxBind,
 };
+use uf_product::services::report_server_fn_error;
 
 use crate::components::schema::SchemaCard;
 use crate::server::{get_spectra_dashboard_summary, SpectraDashboardSummary};
@@ -32,9 +32,22 @@ pub fn SpectraHomePage() -> impl IntoView {
                             />
                         }.into_any(),
                         Some(Ok(summary)) => view! { <DashboardBody summary=summary /> }.into_any(),
-                        Some(Err(e)) => view! {
-                            <Body1>{format!("Failed to load dashboard: {e}")}</Body1>
-                        }.into_any(),
+                        Some(Err(e)) => {
+                            let soft = report_server_fn_error(&e);
+                            if soft {
+                                view! {
+                                    <EmptyState message="Couldn't load dashboard" />
+                                }
+                                .into_any()
+                            } else {
+                                view! {
+                                    <MessageBar intent=MessageBarIntent::Error>
+                                        {format!("Failed to load dashboard: {e}")}
+                                    </MessageBar>
+                                }
+                                .into_any()
+                            }
+                        }
                         None => view! { <Body1>"Loading…"</Body1> }.into_any(),
                     }}
                 </Suspense>
@@ -83,7 +96,7 @@ fn DashboardBody(
                                 <SchemaCard item=item />
                             }).collect_view()}
                             <div id="spectra-home-view-all">
-                                <A href="/spectra/schema">"View all schemas →"</A>
+                                <Link href="/spectra/schema">"View all schemas →"</Link>
                             </div>
                         </Flex>
                     </CardContent>

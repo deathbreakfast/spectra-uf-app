@@ -104,7 +104,6 @@ GitHub Actions job **`e2e`** runs the same gate as local:
 ```bash
 export CARGO_BUILD_JOBS=1
 export CARGO_TARGET_DIR=target-spectra-uf-app
-cd L4-composers/spectra-uf-app
 cargo leptos end-to-end --project spectra-uf-app-e2e
 ```
 
@@ -114,8 +113,20 @@ Specs cover auth gate, home dashboard, schema list/detail, event/metric explore,
 and Help spotlight tours (`help_spotlight.spec.ts`: skip-by-default + all-routes green path)
 with mem Spectra seed data (`POST /api/test/seed-data`).
 
+Event explore chart scenarios (validating — assert headline totals / SVG marks /
+EmptyState classification, not viewport smoke):
+
+- `pw-spectra-event-view-timeseries-data-happy` / `pw-spectra-event-view-line-chart-data-happy`
+- `pw-spectra-event-view-bar-chart-data-happy` / `pw-spectra-event-view-pie-chart-data-happy`
+- `pw-spectra-event-aggregate-sum-data-happy`
+- `pw-spectra-event-view-pie-need-groupby-sad` / `pw-spectra-event-view-bar-need-groupby-sad`
+- `pw-spectra-event-view-timeseries-empty-table-sad`
+- `pw-spectra-event-view-pie-unknown-groupby-sad`
+- `pw-spectra-event-explore-permission-denied-sad`
+
 Layer 1 still holds stub-shape regression tests (`empty_*` helpers) and live-query
-helper contracts (`query_live_contract.rs`).
+helper contracts (`query_live_contract.rs`), including hardened
+`execute_event_aggregate_group_by_slices_happy_path` (Slices required).
 
 Covering integ tests (Layer 1):
 

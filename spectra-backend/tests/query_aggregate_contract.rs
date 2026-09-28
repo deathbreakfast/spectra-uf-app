@@ -66,6 +66,8 @@ async fn execute_event_aggregate_count_happy_path() {
                 measure_field: None,
                 time_bucket_secs: Some(3600),
                 group_by_field: None,
+                row_fields: vec![],
+                pivot_field: None,
             },
         ),
     )
@@ -83,12 +85,14 @@ async fn execute_event_aggregate_count_happy_path() {
                 "count series should reflect seeded rows: {series:?}"
             );
         }
-        EventAggregateResult::Slices { .. } => panic!("expected time series aggregate"),
+        EventAggregateResult::Slices { .. } | EventAggregateResult::Pivot { .. } => {
+            panic!("expected time series aggregate")
+        }
     }
 }
 
 #[tokio::test]
-async fn execute_event_aggregate_sum_mem_backend_empty_sad_path() {
+async fn execute_event_aggregate_sum_mem_backend_happy_path() {
     let router = seeded_router().await;
     let result = execute_event_aggregate(
         &router,
@@ -99,24 +103,28 @@ async fn execute_event_aggregate_sum_mem_backend_empty_sad_path() {
                 measure_field: Some("value".into()),
                 time_bucket_secs: Some(3600),
                 group_by_field: None,
+                row_fields: vec![],
+                pivot_field: None,
             },
         ),
     )
     .await
     .expect("aggregate sum");
     match result {
-        EventAggregateResult::TimeSeries { series, headline } => {
+        EventAggregateResult::TimeSeries { series, .. } => {
             let series_total: f64 = series
                 .iter()
                 .flat_map(|s| s.points.iter())
                 .map(|p| p.value)
                 .sum();
             assert!(
-                series.is_empty() && headline.is_empty() || series_total >= 18.0,
-                "mem backend returns empty sum unless implemented: series={series:?} headline={headline:?}"
+                (series_total - 18.0).abs() < f64::EPSILON,
+                "sum of seeded values should be 18: series={series:?}"
             );
         }
-        EventAggregateResult::Slices { .. } => panic!("expected time series aggregate"),
+        EventAggregateResult::Slices { .. } | EventAggregateResult::Pivot { .. } => {
+            panic!("expected time series aggregate")
+        }
     }
 }
 
@@ -132,6 +140,8 @@ async fn execute_event_aggregate_group_by_slices_happy_path() {
                 measure_field: None,
                 time_bucket_secs: None,
                 group_by_field: Some("severity".into()),
+                row_fields: vec![],
+                pivot_field: None,
             },
         ),
     )
@@ -143,13 +153,48 @@ async fn execute_event_aggregate_group_by_slices_happy_path() {
                 slices.len() >= 2,
                 "expected info and warn slices: {slices:?}"
             );
+            let labels: Vec<_> = slices.iter().map(|s| s.label.as_str()).collect();
+            assert!(labels.contains(&"info"), "{labels:?}");
+            assert!(labels.contains(&"warn"), "{labels:?}");
         }
         EventAggregateResult::TimeSeries { series, .. } => {
-            assert!(
-                !series.is_empty(),
-                "mem backend may return time series instead of slices: {series:?}"
-            );
+            panic!("expected Slices for PieChart group_by, got TimeSeries: {series:?}");
         }
+        EventAggregateResult::Pivot { .. } => panic!("expected Slices, got Pivot"),
+    }
+}
+
+#[tokio::test]
+async fn execute_event_aggregate_table_pivot_happy_path() {
+    let router = seeded_router().await;
+    let result = execute_event_aggregate(
+        &router,
+        &aggregate_request(
+            EventExploreView::Table,
+            EventAggregationSpec {
+                measure: EventMeasure::Count,
+                measure_field: None,
+                time_bucket_secs: None,
+                group_by_field: None,
+                row_fields: vec!["severity".into()],
+                pivot_field: None,
+            },
+        ),
+    )
+    .await
+    .expect("aggregate table");
+    match result {
+        EventAggregateResult::Pivot {
+            row_fields,
+            column_keys,
+            rows,
+            ..
+        } => {
+            assert_eq!(row_fields, vec!["severity".to_string()]);
+            assert_eq!(column_keys.len(), 1);
+            assert!(rows.len() >= 2, "expected severity groups: {rows:?}");
+        }
+        other => panic!("expected Pivot, got {other:?}"),
     }
 }
 
@@ -173,6 +218,8 @@ async fn execute_event_aggregate_empty_table_count_sad_path() {
                 measure_field: None,
                 time_bucket_secs: Some(3600),
                 group_by_field: None,
+                row_fields: vec![],
+                pivot_field: None,
             },
         ),
     )
@@ -180,8 +227,20 @@ async fn execute_event_aggregate_empty_table_count_sad_path() {
     .expect("empty aggregate");
     match result {
         EventAggregateResult::TimeSeries { headline, series } => {
-            assert!(series.is_empty() || headline.iter().all(|c| c.value == "0"));
+            let total: f64 = series
+                .iter()
+                .flat_map(|s| s.points.iter())
+                .map(|p| p.value)
+                .sum();
+            assert!(
+                total == 0.0
+                    && (series.is_empty()
+                        || series.iter().all(|s| s.points.is_empty())
+                        || headline.iter().any(|c| c.label == "Total" && c.value == "0")),
+                "empty table should yield zero series values: series={series:?} headline={headline:?}"
+            );
         }
         EventAggregateResult::Slices { slices, .. } => assert!(slices.is_empty()),
+        EventAggregateResult::Pivot { rows, .. } => assert!(rows.is_empty()),
     }
 }

@@ -41,11 +41,14 @@ uf-product = { workspace = true, default-features = false, optional = true }
 inventory = { workspace = true, optional = true }
 orbital-datatable = { workspace = true, default-features = false }
 orbital-charts = { workspace = true, default-features = false }
+turf.workspace = true
 
 spectra-core = { workspace = true }
 spectra-backend = { path = "../spectra-backend" }
 higgs = { workspace = true, optional = true }
 gauge = { workspace = true, optional = true }
+
+valence = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -76,6 +79,7 @@ ssr = [
     "higgs/ssr",
     "dep:gauge",
     "gauge/ssr",
+    "dep:valence",
     "dep:uf-product",
     "uf-product/ssr",
     "uf-help/ssr",

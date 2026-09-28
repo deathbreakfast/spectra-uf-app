@@ -3,13 +3,13 @@
 use lepton_shell::AppBarUserMenu;
 use leptos::prelude::*;
 use leptos_router::{
-    components::{Outlet, A},
+    components::Outlet,
     hooks::{use_location, use_params_map},
 };
 use orbital::components::{
     Navigation, NavigationBody, NavigationConfig, NavigationLink, NavigationMaterial,
 };
-use orbital::primitives::{Breadcrumb, BreadcrumbItem, Flex};
+use orbital::primitives::{Breadcrumb, BreadcrumbButton, BreadcrumbItem, Flex, Link};
 use uf_integrations::{
     ShellAppBar, ShellAuthMenu, ShellLeftNav, UnifiedFieldAppBar, UnifiedFieldShellLayout,
 };
@@ -48,8 +48,8 @@ pub fn SpectraLayout() -> impl IntoView {
                         </NavigationBody>
                     </Navigation>
                 </ShellLeftNav>
-                <RequireAuthenticated>
-                    <Flex vertical=true>
+                <RequireAuthenticated permission_name="QueryTable">
+                    <Flex vertical=true fill=true>
                         <div data-testid="spectra-breadcrumbs">
                             <SpectraBreadcrumbTrail />
                         </div>
@@ -68,7 +68,9 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
     view! {
         <Breadcrumb>
             <BreadcrumbItem>
-                <A href="/spectra">"Spectra"</A>
+                <Link href="/spectra">
+                    <BreadcrumbButton>"Spectra"</BreadcrumbButton>
+                </Link>
             </BreadcrumbItem>
             {move || {
                 let path = location.pathname.get();
@@ -77,7 +79,9 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                 }
                 if path == "/spectra/schema" {
                     return Some(view! {
-                        <BreadcrumbItem>"Schemas"</BreadcrumbItem>
+                        <BreadcrumbItem>
+                            <BreadcrumbButton current=true>"Schemas"</BreadcrumbButton>
+                        </BreadcrumbItem>
                     }.into_any());
                 }
                 if path.starts_with("/spectra/schema/") {
@@ -85,28 +89,48 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                     if path.ends_with("/explore") {
                         return Some(view! {
                             <BreadcrumbItem>
-                                <A href="/spectra/schema">"Schemas"</A>
+                                <Link href="/spectra/schema">
+                                    <BreadcrumbButton>"Schemas"</BreadcrumbButton>
+                                </Link>
                             </BreadcrumbItem>
                             <BreadcrumbItem>
-                                <A href=format!("/spectra/schema/{name}")>{name.clone()}</A>
+                                <Link href=format!("/spectra/schema/{name}")>
+                                    <BreadcrumbButton>{name.clone()}</BreadcrumbButton>
+                                </Link>
                             </BreadcrumbItem>
-                            <BreadcrumbItem>"Explore"</BreadcrumbItem>
+                            <BreadcrumbItem>
+                                <BreadcrumbButton current=true>"Explore"</BreadcrumbButton>
+                            </BreadcrumbItem>
                         }.into_any());
                     }
                     return Some(view! {
                         <BreadcrumbItem>
-                            <A href="/spectra/schema">"Schemas"</A>
+                            <Link href="/spectra/schema">
+                                <BreadcrumbButton>"Schemas"</BreadcrumbButton>
+                            </Link>
                         </BreadcrumbItem>
-                        <BreadcrumbItem>{name}</BreadcrumbItem>
+                        <BreadcrumbItem>
+                            <BreadcrumbButton current=true>{name}</BreadcrumbButton>
+                        </BreadcrumbItem>
                     }.into_any());
                 }
                 if path.starts_with("/spectra/metric/") && path.ends_with("/explore") {
                     let name = params.with(|p| p.get("name").unwrap_or_default());
+                    let detail_href = format!("/spectra/schema/{name}");
                     return Some(view! {
                         <BreadcrumbItem>
-                            <A href="/spectra/schema">"Schemas"</A>
+                            <Link href="/spectra/schema">
+                                <BreadcrumbButton>"Schemas"</BreadcrumbButton>
+                            </Link>
                         </BreadcrumbItem>
-                        <BreadcrumbItem>{format!("Explore {name}")}</BreadcrumbItem>
+                        <BreadcrumbItem>
+                            <Link href=detail_href>
+                                <BreadcrumbButton>{name.clone()}</BreadcrumbButton>
+                            </Link>
+                        </BreadcrumbItem>
+                        <BreadcrumbItem>
+                            <BreadcrumbButton current=true>"Explore"</BreadcrumbButton>
+                        </BreadcrumbItem>
                     }.into_any());
                 }
                 None

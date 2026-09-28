@@ -16,13 +16,13 @@ use super::help_stack;
 pub fn SpectraEventIntroHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-event-intro",
-        "This page reads one event diary. You pick how far back to look, how to display the rows or charts, and (for charts) how to count and group the values.",
+        "This page reads one event diary. Start from the event log, set filters and a time window, then See a chart without leaving the filter toolbar.",
         None,
         &[],
     )
 }
 
-/// Time range presets.
+/// DateTime range picker.
 #[help_spotlight_step(
     route = "/spectra/schema/:name/explore",
     feature_highlight = "spectra-event-time-range",
@@ -35,18 +35,13 @@ pub fn SpectraEventIntroHelp() -> impl IntoView {
 pub fn SpectraEventTimeRangeHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-event-time-range",
-        "Click a button to reload with that window.",
+        "Set the start and end with the datetime range picker. Queries reload for that window.",
         None,
-        &[
-            "1h: last hour",
-            "6h: last six hours",
-            "24h: last day",
-            "7d: last week",
-        ],
+        &["Default is the last hour ending now (local wall clock)."],
     )
 }
 
-/// View picker.
+/// View picker + See.
 #[help_spotlight_step(
     route = "/spectra/schema/:name/explore",
     feature_highlight = "spectra-event-view-picker",
@@ -59,12 +54,11 @@ pub fn SpectraEventTimeRangeHelp() -> impl IntoView {
 pub fn SpectraEventViewPickerHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-event-view-picker",
-        "Click one view; the results area updates.",
+        "Pick Event log, Time series, Bar, or Pie, then press See (or Show rows for the log).",
         None,
         &[
             "Event log: table of individual rows",
             "Time series: points over time",
-            "Line chart: same idea, line style",
             "Bar chart: bars by group",
             "Pie chart: slices by group",
         ],
@@ -103,8 +97,8 @@ pub fn SpectraAggregationMeasureHelp() -> impl IntoView {
 pub fn SpectraAggregationBucketHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-aggregation-bucket",
-        "On Time series or Line chart, set how many seconds each point covers.",
-        Some("Leave Event log or pie/bar views alone—this field only applies to series and line."),
+        "On Time series, set how many seconds each point covers.",
+        Some("Leave Event log or pie/bar views alone—this field only applies to time series."),
         &[],
     )
 }
@@ -122,8 +116,8 @@ pub fn SpectraAggregationBucketHelp() -> impl IntoView {
 pub fn SpectraAggregationGroupByHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-aggregation-group-by",
-        "On Pie or Bar charts, type a field name to split slices or bars.",
-        Some("Other views leave this empty."),
+        "On Pie or Bar charts, pick a schema field to split slices or bars.",
+        Some("Other views clear this so leftover group-by cannot empty a time series."),
         &[],
     )
 }
@@ -141,8 +135,8 @@ pub fn SpectraAggregationGroupByHelp() -> impl IntoView {
 pub fn SpectraEventViewportHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-event-viewport",
-        "Event log shows a sortable table of rows. Chart views show headline numbers plus the chart itself.",
-        Some("Read the grid or series here after you change the window or view."),
+        "Event log shows a sortable table. Chart views keep the table toolbar (search, Filters, Columns, export) and draw the chart under it.",
+        Some("Header filters and the Filters panel share one model that re-queries rows and aggregates."),
         &[],
     )
 }

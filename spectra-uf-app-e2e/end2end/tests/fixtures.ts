@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
 
 export type SeedAuthKind =
   | "anonymous"
@@ -365,7 +365,6 @@ export async function openEventExplore(
 const EVENT_VIEW_TEST_IDS: Record<string, string> = {
   "Event log": "spectra-event-view-event-log",
   "Time series": "spectra-event-view-time-series",
-  "Line chart": "spectra-event-view-line-chart",
   "Bar chart": "spectra-event-view-bar-chart",
   "Pie chart": "spectra-event-view-pie-chart",
 };
@@ -373,7 +372,16 @@ const EVENT_VIEW_TEST_IDS: Record<string, string> = {
 export async function selectEventView(page: Page, label: string) {
   const testId = EVENT_VIEW_TEST_IDS[label];
   expect(testId, `unknown event view label: ${label}`).toBeTruthy();
-  await page.getByTestId(testId).getByRole("button").click();
+  const picker = page.getByTestId("spectra-event-view-picker");
+  const select = picker.locator("select");
+  if ((await select.count()) > 0) {
+    const option = picker.getByTestId(testId);
+    const value = await option.getAttribute("value");
+    expect(value, `missing value on ${testId}`).toBeTruthy();
+    await select.selectOption(value!);
+  } else {
+    await page.getByTestId(testId).getByRole("button").click();
+  }
   if (label !== "Event log") {
     await expect(
       page.getByTestId("spectra-aggregation-measure").locator("select"),
@@ -381,6 +389,8 @@ export async function selectEventView(page: Page, label: string) {
       timeout: 60_000,
     });
   }
+  // Chart views wait for See; Event log applies immediately (Show rows still safe).
+  await page.getByTestId("spectra-event-see").getByRole("button").click();
 }
 
 export async function expectPermissionDenied(page: Page) {
@@ -410,6 +420,116 @@ export async function expectGridContains(page: Page, text: string) {
     return;
   }
   await expectGridHasRows(page, 1);
+}
+
+const CHART_TEST_IDS = {
+  time_series: "spectra-event-time-series-chart",
+  bar: "spectra-event-bar-chart",
+  pie: "spectra-event-pie-chart",
+} as const;
+
+export type EventChartKind = keyof typeof CHART_TEST_IDS;
+
+/** Assert explore chart shows data (not EmptyState). */
+export async function expectEventChartHasData(
+  page: Page,
+  kind: EventChartKind,
+  opts?: { minTotal?: number; labels?: string[] },
+) {
+  const chart = page.getByTestId(CHART_TEST_IDS[kind]);
+  await expect(chart).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("spectra-event-empty-state")).toHaveCount(0);
+  await expect(page.getByText("No series data")).toHaveCount(0);
+  await expect(page.getByText("No slice data")).toHaveCount(0);
+  await expect(page.getByText("Choose a group-by field")).toHaveCount(0);
+
+  const stats = page.getByTestId("spectra-event-headline-stats");
+  await expect(stats).toBeVisible({ timeout: 60_000 });
+  const minTotal = opts?.minTotal ?? 3;
+  await expect
+    .poll(async () => {
+      const text = (await stats.innerText()) ?? "";
+      const nums = text.match(/\d+/g)?.map(Number) ?? [];
+      return nums.some((n) => n >= minTotal);
+    }, { timeout: 60_000 })
+    .toBe(true);
+
+  await expect
+    .poll(async () => {
+      return chart.locator("svg path, svg rect, svg circle, svg text").count();
+    }, { timeout: 60_000 })
+    .toBeGreaterThan(0);
+
+  for (const label of opts?.labels ?? []) {
+    await expect(page.getByTestId("spectra-event-explore-viewport")).toContainText(label, {
+      timeout: 60_000,
+    });
+  }
+}
+
+export type EventChartEmptyReason = "no_series" | "no_slice" | "need_group_by";
+
+const EMPTY_COPY: Record<EventChartEmptyReason, RegExp> = {
+  no_series: /No series data/i,
+  no_slice: /No slice data/i,
+  need_group_by: /Choose a group-by field/i,
+};
+
+/** Assert explore chart EmptyState for a classified reason. */
+export async function expectEventChartEmpty(page: Page, reason: EventChartEmptyReason) {
+  const empty = page.getByTestId("spectra-event-empty-state");
+  await expect(empty).toBeVisible({ timeout: 60_000 });
+  await expect(empty).toContainText(EMPTY_COPY[reason]);
+}
+
+/**
+ * Assert no two elements matched by `selector` inside `container` have overlapping bounding
+ * boxes. Layout-level (position/size), not a screenshot diff, so it stays stable across
+ * environments/fonts. Same technique as orbital's own `end2end/tests/lib/assertions/layout.ts`
+ * `expectNoOverlappingLabels` — kept as a separate copy here since this is a different repo's
+ * e2e suite, but the two should stay in sync if the technique changes.
+ */
+export async function expectNoOverlappingLabels(
+  container: Locator,
+  selector = ".orb-axis-tick-label",
+) {
+  const labels = container.locator(selector);
+  const count = await labels.count();
+  const boxes: { x: number; y: number; width: number; height: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const box = await labels.nth(i).boundingBox();
+    if (box) boxes.push(box);
+  }
+
+  const overlapping: [number, number][] = [];
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i];
+      const b = boxes[j];
+      const intersects =
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y;
+      if (intersects) overlapping.push([i, j]);
+    }
+  }
+
+  expect(
+    overlapping,
+    `overlapping label pairs (indices into rendered order): ${JSON.stringify(overlapping)}`,
+  ).toEqual([]);
+}
+
+export async function fillGroupBy(page: Page, field: string) {
+  const select = page
+    .getByTestId("spectra-aggregation-group-by")
+    .locator("select");
+  await expect(select).toBeVisible({ timeout: 60_000 });
+  await select.selectOption(field);
+  await expect(select).toHaveValue(field);
+  // Re-apply See so the aggregate query picks up group_by (picker is pending until See).
+  await page.getByTestId("spectra-event-see").getByRole("button").click();
 }
 
 export const test = base;

@@ -1,6 +1,5 @@
 use leptos::prelude::*;
-use orbital::components::Card;
-use orbital::primitives::Flex;
+use orbital::components::{Card, CardContent};
 
 #[component]
 pub fn QueryToolbarMaterial(
@@ -9,9 +8,7 @@ pub fn QueryToolbarMaterial(
 ) -> impl IntoView {
     view! {
         <Card>
-            <Flex vertical=true>
-                {children()}
-            </Flex>
+            <CardContent>{children()}</CardContent>
         </Card>
     }
 }

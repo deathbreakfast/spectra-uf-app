@@ -4,10 +4,11 @@ Playwright IsolatedLab host for [`spectra-app`](../spectra-app/) on `127.0.0.1:3
 
 ## Run
 
+From the repository root:
+
 ```bash
 export CARGO_BUILD_JOBS=1
 export CARGO_TARGET_DIR=target-spectra-uf-app
-cd L4-composers/spectra-uf-app
 cargo leptos end-to-end --project spectra-uf-app-e2e
 ```
 
@@ -27,8 +28,8 @@ npm run test:headed
 |----|-----------|---------|
 | `pw-spectra-auth-gate-sad-anonymous` | `auth_gate.spec.ts` | Anonymous → `auth-required-empty-state`; home absent |
 | `pw-spectra-auth-gate-happy-admin` | `auth_gate.spec.ts` | Admin → home visible |
-| `pw-spectra-auth-outsider-schema-index-sad` | `auth_gate.spec.ts` | Outsider → schema load error |
-| `pw-spectra-auth-unverified-schema-index-sad` | `auth_gate.spec.ts` | Unverified → schema load error |
+| `pw-spectra-auth-outsider-schema-index-sad` | `auth_gate.spec.ts` | Outsider → QueryTable permission-required empty state |
+| `pw-spectra-auth-unverified-schema-index-sad` | `auth_gate.spec.ts` | Unverified → QueryTable permission-required empty state |
 | `pw-spectra-guest-schema-index-sad` | `auth_gate.spec.ts` | Guest `/spectra/schema` → auth empty state |
 | `pw-spectra-guest-event-explore-sad` | `auth_gate.spec.ts` | Guest event explore → auth empty state |
 | `pw-spectra-guest-metric-explore-sad` | `auth_gate.spec.ts` | Guest metric explore → auth empty state |
@@ -50,13 +51,18 @@ npm run test:headed
 | `pw-spectra-schema-unknown-sad` | `schemas.spec.ts` | Unknown schema empty state |
 | `pw-spectra-event-log-seeded-row-happy` | `event_explore.spec.ts` | Grid contains seed message |
 | `pw-spectra-event-log-empty-table-happy` | `event_explore.spec.ts` | Empty table grid mounts |
-| `pw-spectra-event-explore-time-range-happy` | `event_explore.spec.ts` | Time range reload |
-| `pw-spectra-event-view-timeseries-happy` | `event_explore.spec.ts` | Time series chart |
-| `pw-spectra-event-view-line-chart-happy` | `event_explore.spec.ts` | Line chart |
-| `pw-spectra-event-view-bar-chart-happy` | `event_explore.spec.ts` | Bar chart + group by |
-| `pw-spectra-event-view-pie-chart-happy` | `event_explore.spec.ts` | Pie chart + group by |
-| `pw-spectra-event-aggregate-count-happy` | `event_explore.spec.ts` | Count aggregation control |
-| `pw-spectra-event-aggregate-sum-control-happy` | `event_explore.spec.ts` | Sum aggregation control |
+| `pw-spectra-event-explore-time-range-happy` | `event_explore.spec.ts` | DateTime range + refresh |
+| `pw-spectra-event-explore-layout-side-by-side-happy` | `event_explore.spec.ts` | Wide: controls left of table |
+| `pw-spectra-event-explore-layout-narrow-stack-happy` | `event_explore.spec.ts` | Narrow: controls above table |
+| `pw-spectra-event-chart-toolbar-no-thead-happy` | `event_explore.spec.ts` | Chart mode: toolbar without thead |
+| `pw-spectra-event-view-timeseries-data-happy` | `event_explore.spec.ts` | Time series chart has data (headline + SVG marks) |
+| `pw-spectra-event-view-bar-chart-data-happy` | `event_explore.spec.ts` | Bar + severity → info/warn slices |
+| `pw-spectra-event-view-pie-chart-data-happy` | `event_explore.spec.ts` | Pie + severity → info/warn slices |
+| `pw-spectra-event-aggregate-sum-data-happy` | `event_explore.spec.ts` | Sum `value` → total ≥ 18 |
+| `pw-spectra-event-view-pie-need-groupby-sad` | `event_explore.spec.ts` | Pie without group-by → EmptyState |
+| `pw-spectra-event-view-bar-need-groupby-sad` | `event_explore.spec.ts` | Bar without group-by → EmptyState |
+| `pw-spectra-event-view-timeseries-empty-table-sad` | `event_explore.spec.ts` | Empty table Time series → No series data |
+| `pw-spectra-event-view-pie-empty-groupby-sad` | `event_explore.spec.ts` | Empty group-by on pie → need group-by |
 | `pw-spectra-event-explore-permission-denied-sad` | `event_explore.spec.ts` | Permission denied |
 | `pw-spectra-metric-chart-happy` | `metric_explore.spec.ts` | Metric chart visible |
 | `pw-spectra-metric-headline-happy` | `metric_explore.spec.ts` | Headline shows seeded 42 |

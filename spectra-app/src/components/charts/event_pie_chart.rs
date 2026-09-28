@@ -12,9 +12,11 @@ pub fn EventPieChart(
 ) -> impl IntoView {
     let (x_axis, chart_series) = chart_from_slices(&slices, orbital_charts::ChartType::Pie);
     view! {
-        <div data-testid="spectra-event-pie-chart">
+        <div data-testid="spectra-event-pie-chart" style="width: 100%; height: 100%;">
             <ChartSurfaceMaterial>
-                <PieChart x_axis=x_axis series=chart_series />
+                <div style="width: 100%; flex: 1 1 auto; min-height: 320px;">
+                    <PieChart x_axis=x_axis series=chart_series responsive=true />
+                </div>
             </ChartSurfaceMaterial>
         </div>
     }

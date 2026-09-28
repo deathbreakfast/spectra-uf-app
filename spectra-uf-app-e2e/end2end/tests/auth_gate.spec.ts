@@ -23,7 +23,7 @@ test.describe("pw-spectra-auth-gate", () => {
     await seedAuth(page, "outsider");
     await page.goto("/spectra/schema", { waitUntil: "domcontentloaded" });
     await waitForHydrated(page);
-    await expect(page.getByText(/Failed to load schemas/i)).toBeVisible({
+    await expect(page.getByTestId("permission-required-empty-state")).toBeAttached({
       timeout: 60_000,
     });
   });
@@ -32,7 +32,7 @@ test.describe("pw-spectra-auth-gate", () => {
     await seedAuth(page, "unverified");
     await page.goto("/spectra/schema", { waitUntil: "domcontentloaded" });
     await waitForHydrated(page);
-    await expect(page.getByText(/Failed to load schemas/i)).toBeVisible({
+    await expect(page.getByTestId("permission-required-empty-state")).toBeAttached({
       timeout: 60_000,
     });
   });

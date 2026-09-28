@@ -28,6 +28,8 @@
 mod permissions;
 
 use leptos::prelude::*;
+#[cfg(feature = "ssr")]
+pub use permissions::ensure_table_query_permissions;
 pub use permissions::require_spectra_query;
 pub use spectra_backend::{
     encode_ops_path_segment, execute_event_aggregate, execute_event_query, execute_metrics_query,

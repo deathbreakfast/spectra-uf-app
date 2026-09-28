@@ -79,12 +79,15 @@ fn layout_auth_gate_and_nav_happy_path() {
     for needle in [
         "spectra-app-root",
         "RequireAuthenticated",
+        "permission_name=\"QueryTable\"",
         "Outlet",
         "nav-spectra-home",
         "nav-spectra-schemas",
         "AppBarUserMenu",
         "UnifiedFieldShellLayout",
         "Breadcrumb",
+        "BreadcrumbButton",
+        "Link href",
     ] {
         assert!(
             layout.contains(needle),
@@ -184,8 +187,9 @@ fn server_require_session_happy_path() {
     assert!(
         perms.contains("fn require_spectra_query")
             && perms.contains("SpectraOpsError::PermissionDenied")
-            && perms.contains("spectra_query_permission_name"),
-        "require_spectra_query must deny when Gauge spectra.query.{{table}} is missing"
+            && perms.contains("spectra_query_permission_name")
+            && perms.contains("fn ensure_table_query_permissions"),
+        "require_spectra_query must deny when Gauge spectra.query.{{table}} is missing; ensure_table_query_permissions must stay for host boot sync"
     );
 
     for call_site in [
@@ -315,6 +319,78 @@ fn index_pages_testid_and_list_bindings_happy_path() {
         metric_panel.contains("query_metrics"),
         "MetricExplorePanel must bind query_metrics"
     );
+    assert!(
+        !metric.contains("use orbital::components::{ContentContainer")
+            && !metric.contains("<ContentContainer")
+            && !metric_panel.contains("<ContentContainer"),
+        "metric explore canvas must not use ContentContainer gutter"
+    );
+    assert!(
+        !metric.contains("Size240"),
+        "metric explore canvas must not use Size240 page gap"
+    );
+
+    let event_mod = read_app("pages/event_explore/mod.rs");
+    assert!(
+        !event_mod.contains("<ContentContainer")
+            && !event_mod.contains("use orbital::components::{ContentContainer")
+            && !event_mod.contains("Size240"),
+        "event explore canvas must not use ContentContainer / Size240 gutter"
+    );
+}
+
+#[test]
+fn explore_toolbar_refresh_and_view_select_happy_path() {
+    let metric_toolbar = read_app("pages/metric_explore/components/metric_toolbar.rs");
+    assert!(
+        metric_toolbar.contains("Refresh Data") && metric_toolbar.contains("spectra-refresh-data"),
+        "metric toolbar must expose Refresh Data next to the time range"
+    );
+    assert!(
+        metric_toolbar.contains("TimeRangePicker"),
+        "metric toolbar must keep TimeRangePicker sibling for Refresh"
+    );
+
+    let event_toolbar = read_app("pages/event_explore/components/event_toolbar.rs");
+    assert!(
+        event_toolbar.contains("Refresh Data") && event_toolbar.contains("spectra-refresh-data"),
+        "event toolbar must expose Refresh Data"
+    );
+
+    let view_picker = read_app("components/query/event_view_picker.rs");
+    assert!(
+        view_picker.contains("Select") && view_picker.contains("EventExploreView"),
+        "EventViewPicker must be an Orbital Select bound to EventExploreView"
+    );
+
+    let time_range = read_app("components/query/time_range_picker.rs");
+    assert!(
+        !time_range.contains("let _ = selected_secs"),
+        "TimeRangePicker must use selected_secs for Primary appearance"
+    );
+    assert!(
+        time_range.contains("ButtonAppearance::Primary"),
+        "TimeRangePicker must mark the selected preset Primary"
+    );
+}
+
+#[test]
+fn schema_detail_fields_table_happy_path() {
+    let detail = read_app("pages/schema_detail/components/schema_detail_body.rs");
+    assert!(
+        detail.contains("SchemaFieldDto")
+            || detail.contains("schema_fields_to_rows")
+            || detail.contains("fields"),
+        "schema detail must render SchemaDetailDto.fields"
+    );
+    assert!(
+        detail.contains("spectra-schema-fields-table"),
+        "schema fields table needs a stable testid"
+    );
+    assert!(
+        detail.contains("CardContent") && detail.contains("EmptyState"),
+        "fields card must use CardContent and EmptyState for empty fields"
+    );
 }
 
 #[test]
@@ -326,12 +402,14 @@ fn index_drop_schema_testid_sad_path() {
     );
     let event = read_app("pages/event_explore/mod.rs");
     assert!(
-        event.contains("data_testid=\"spectra-event-explore-panel\""),
+        event.contains("data_testid=\"spectra-event-explore-panel\"")
+            || event.contains("data-testid=\"spectra-event-explore-panel\""),
         "dropping spectra-event-explore-panel breaks host / future Playwright parity"
     );
     let metric = read_app("pages/metric_explore/mod.rs");
     assert!(
-        metric.contains("data_testid=\"spectra-metric-explore-panel\""),
+        metric.contains("data_testid=\"spectra-metric-explore-panel\"")
+            || metric.contains("data-testid=\"spectra-metric-explore-panel\""),
         "dropping spectra-metric-explore-panel breaks host / future Playwright parity"
     );
 }

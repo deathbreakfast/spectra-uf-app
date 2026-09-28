@@ -51,6 +51,24 @@ test.describe("pw-spectra-schemas", () => {
     ).toBeVisible();
   });
 
+  test("pw-spectra-schema-fields-table-happy", async ({ page }) => {
+    const seeded = await seedAuth(page, "admin");
+    await page.goto(`/spectra/schema/${encodeURIComponent(seeded.fixtures.event_table)}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForHydrated(page);
+    const fields = page.getByTestId("spectra-schema-fields-table");
+    await expect(fields).toBeVisible({ timeout: 60_000 });
+    // Either real field rows or the empty-state copy when the DTO has no fields.
+    const hasHeader = await fields.getByRole("columnheader", { name: /field/i }).count();
+    if (hasHeader > 0) {
+      await expect(fields.getByRole("columnheader", { name: /type/i })).toBeVisible();
+      await expect(fields.getByRole("columnheader", { name: /classification/i })).toBeVisible();
+    } else {
+      await expect(fields.getByText(/No field metadata/i)).toBeVisible();
+    }
+  });
+
   test("pw-spectra-schema-detail-explore-cta-happy", async ({ page }) => {
     const seeded = await seedAuth(page, "admin");
     await page.goto(`/spectra/schema/${encodeURIComponent(seeded.fixtures.event_table)}`, {

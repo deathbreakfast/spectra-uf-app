@@ -133,9 +133,8 @@ lepton-shell = { git = "https://github.com/unified-field-dev/lepton-uf-app", bra
 lepton = { git = "https://github.com/unified-field-dev/lepton", branch = "main", default-features = false }
 inventory = "0.3"
 
-# Unify deathbreakfast chronon-coordinator pins onto uf-dev git.
-[patch."https://github.com/deathbreakfast/chronon-coordinator"]
-chronon-coordinator = { git = "https://github.com/unified-field-dev/chronon-coordinator", branch = "main" }
+
+
 
 # Unify crates.io uf-valence / chronon / orbital onto the git tree.
 [patch.crates-io]

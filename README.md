@@ -63,9 +63,6 @@ cargo test -p spectra-backend
 | [`spectra-uf-app-e2e`](spectra-uf-app-e2e/) | Playwright lab host + SSR boundary contract tests |
 | [`protected-spectra-host`](examples/protected-spectra-host/) | Teaching host: deny/allow + schema index |
 
-Edit only this workspace tree — an archive copy may exist under
-`L5-hosts/web-app-template-archive-only/spectra-app/`.
-
 ## Examples
 
 | Host | When to use | Command | Success | Look next |
