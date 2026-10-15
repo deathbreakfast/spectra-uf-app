@@ -24,7 +24,14 @@ pub struct SeedRequest {
     /// When `true`, skip writing Spectra rows (auth/session still applied).
     #[serde(default)]
     pub skip_data: bool,
+    /// Extra event rows written to the event table, older than the fixed seed rows but inside
+    /// the default one-hour explore window. Capped at [`MAX_BULK_EVENTS`].
+    #[serde(default)]
+    pub bulk_events: u32,
 }
+
+/// Upper bound on [`SeedRequest::bulk_events`].
+pub const MAX_BULK_EVENTS: u32 = 500;
 
 fn default_auth() -> String {
     E2eAuthKind::Anonymous.as_str().to_string()
@@ -96,7 +103,11 @@ async fn revoke_table_query_perm(
     Ok(())
 }
 
-async fn seed_spectra_rows(kind: E2eAuthKind, skip_data: bool) -> Result<(), StatusCode> {
+async fn seed_spectra_rows(
+    kind: E2eAuthKind,
+    skip_data: bool,
+    bulk_events: u32,
+) -> Result<(), StatusCode> {
     if matches!(kind, E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms) {
         let admin = e2e_admin_valence();
         // Create missing spectra.query.* Gauge rows for registered schemas.
@@ -171,6 +182,19 @@ async fn seed_spectra_rows(kind: E2eAuthKind, skip_data: bool) -> Result<(), Sta
         }),
         stale,
     );
+    let bulk_start = now - chrono::Duration::minutes(10);
+    for i in 0..bulk_events.min(MAX_BULK_EVENTS) {
+        try_log_event_at(
+            E2E_EVENT_TABLE,
+            &json!({
+                "id": format!("e2e-bulk-{i}"),
+                "message": format!("Bulk paging row {i}"),
+                "severity": "info",
+                "value": 1,
+            }),
+            bulk_start - chrono::Duration::seconds(i64::from(i)),
+        );
+    }
     try_record_gauge_at(E2E_METRIC_NAME, &[("host", "e2e")], 42.0, recent);
 
     e2e_spectra().flush_persist().await.map_err(|err| {
@@ -189,7 +213,7 @@ pub async fn seed_data(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    seed_spectra_rows(kind, body.skip_data).await?;
+    seed_spectra_rows(kind, body.skip_data, body.bulk_events).await?;
 
     let fixtures = e2e_fixtures();
     Ok(Json(serde_json::json!({

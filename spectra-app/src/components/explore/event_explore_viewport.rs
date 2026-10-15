@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 use orbital::primitives::{Flex, FlexGap};
-use orbital_datatable::DataTableFilter;
+use orbital_datatable::{DataTableFilter, PageFetcher};
 use spectra_core::{EventAggregateResult, EventExploreView, EventQueryResult};
 
 use crate::components::explore::{EventAggregateTablePanel, EventPiePanel, EventSeriesPanel};
@@ -25,6 +25,9 @@ pub fn EventExploreViewport(
     table_filter: RwSignal<Option<DataTableFilter>>,
     /// Bridge filter changes into the explore query model.
     on_filter_change: Callback<DataTableFilter>,
+    /// Server page fetcher for the Event log view.
+    #[prop(default = None)]
+    event_log_fetcher: Option<PageFetcher>,
 ) -> impl IntoView {
     let view = normalize_view(view);
     let chart_mode = view != EventExploreView::EventLog;
@@ -38,6 +41,7 @@ pub fn EventExploreViewport(
                     filter=table_filter
                     on_filter_change=on_filter_change
                     chart_mode=chart_mode
+                    fetcher=event_log_fetcher
                 />
                 {match view {
                     EventExploreView::EventLog => ().into_any(),

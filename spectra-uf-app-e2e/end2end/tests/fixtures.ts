@@ -193,7 +193,7 @@ const SPECTRA_HELP_STEPS_SEEN = [
 export async function seedAuth(
   page: Page,
   auth: SeedAuthKind,
-  opts?: { skipData?: boolean; help_tour?: boolean },
+  opts?: { skipData?: boolean; help_tour?: boolean; bulkEvents?: number },
 ) {
   const helpTour = opts?.help_tour ?? false;
   await page.addInitScript(
@@ -215,7 +215,7 @@ export async function seedAuth(
   );
 
   const res = await page.request.post("/api/test/seed-data", {
-    data: { auth, skip_data: opts?.skipData ?? false },
+    data: { auth, skip_data: opts?.skipData ?? false, bulk_events: opts?.bulkEvents ?? 0 },
   });
   expect(res.ok()).toBeTruthy();
   return res.json() as Promise<SeedResponse>;

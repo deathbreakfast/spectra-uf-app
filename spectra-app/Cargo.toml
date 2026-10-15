@@ -41,6 +41,7 @@ uf-product = { workspace = true, default-features = false, optional = true }
 inventory = { workspace = true, optional = true }
 orbital-datatable = { workspace = true, default-features = false }
 orbital-charts = { workspace = true, default-features = false }
+orbital-paging = { workspace = true }
 turf.workspace = true
 
 spectra-core = { workspace = true }

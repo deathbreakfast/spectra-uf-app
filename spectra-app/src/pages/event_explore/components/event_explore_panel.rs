@@ -5,13 +5,14 @@ use orbital_datatable::DataTableFilter;
 use serde::{Deserialize, Serialize};
 use spectra_core::{
     EventAggregateRequest, EventAggregateResult, EventAggregationSpec, EventExploreView,
-    EventQuery, EventQueryResult, GridFilterModel, GridPaginationModel, GridSortDirection,
-    GridSortItem,
+    EventQueryResult, GridFilterModel,
 };
 
 use crate::components::explore::{EventExploreSkeleton, EventExploreViewport};
 use crate::components::query::{normalize_view, PermissionDeniedState};
-use crate::components::tables::data_table_filter_to_grid;
+use crate::components::tables::{
+    build_event_log_fetcher, data_table_filter_to_grid, EventLogScope,
+};
 use crate::explore_time::{default_explore_datetime_range, range_from_datetime_range};
 use crate::server::{
     get_schema_metadata, query_event_aggregate, query_events, server_fn_is_permission_denied,
@@ -21,7 +22,13 @@ use super::event_toolbar::EventToolbar;
 
 #[derive(Clone, Serialize, Deserialize)]
 enum ExploreData {
-    Rows(EventQueryResult),
+    /// First Event log page; the grid fetches later pages for the same table and range.
+    Rows {
+        table: String,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+        first_page: EventQueryResult,
+    },
     Aggregate(EventAggregateResult),
 }
 
@@ -80,16 +87,15 @@ pub fn EventExplorePanel(
                 (n.start.instant().timestamp(), n.end.instant().timestamp())
             });
             let agg = aggregation.get();
-            let filter = grid_filter.get();
-            let filter_key = serde_json::to_string(&filter).unwrap_or_default();
+            let view = normalize_view(applied_view.get());
+            // The Event log grid filters on the server itself; only charts refetch here.
+            let filter_key = if view == EventExploreView::EventLog {
+                String::new()
+            } else {
+                serde_json::to_string(&grid_filter.get()).unwrap_or_default()
+            };
             let agg_key = serde_json::to_string(&agg).unwrap_or_default();
-            (
-                table.get(),
-                range_key,
-                normalize_view(applied_view.get()),
-                agg_key,
-                filter_key,
-            )
+            (table.get(), range_key, view, agg_key, filter_key)
         },
         |(table, range_key, view, agg_key, filter_key)| async move {
             let filter: GridFilterModel = serde_json::from_str(&filter_key).unwrap_or_default();
@@ -123,20 +129,18 @@ pub fn EventExplorePanel(
             let view = normalize_view(view);
             match view {
                 EventExploreView::EventLog => {
-                    let rows = query_events(EventQuery {
+                    let scope = EventLogScope {
                         table: table.clone(),
                         start,
                         end,
-                        partition: None,
-                        pagination: GridPaginationModel::default(),
-                        sort: vec![GridSortItem {
-                            field: "ts".into(),
-                            sort: GridSortDirection::Desc,
-                        }],
-                        filter,
+                    };
+                    let first_page = query_events(scope.first_page_query()).await?;
+                    Ok::<ExploreData, ServerFnError>(ExploreData::Rows {
+                        table,
+                        start,
+                        end,
+                        first_page,
                     })
-                    .await?;
-                    Ok::<ExploreData, ServerFnError>(ExploreData::Rows(rows))
                 }
                 other => {
                     if !matches!(
@@ -202,18 +206,25 @@ pub fn EventExplorePanel(
             >
             <Transition fallback=move || view! { <EventExploreSkeleton view=applied_view.get() /> }>
                 {move || match explore_res.get() {
-                    Some(Ok(ExploreData::Rows(rows))) => view! {
-                        <EventExploreViewport
-                            view=EventExploreView::EventLog
-                            row_result=Some(rows)
-                            aggregate_result=None
-                            group_by_field=None
-                            row_fields=Vec::new()
-                            column_fields=column_fields.get()
-                            table_filter=table_filter
-                            on_filter_change=on_filter_change
-                        />
-                    }.into_any(),
+                    Some(Ok(ExploreData::Rows { table, start, end, first_page })) => {
+                        let fetcher = build_event_log_fetcher(
+                            EventLogScope { table, start, end },
+                            Some(first_page.clone()),
+                        );
+                        view! {
+                            <EventExploreViewport
+                                view=EventExploreView::EventLog
+                                row_result=Some(first_page)
+                                aggregate_result=None
+                                group_by_field=None
+                                row_fields=Vec::new()
+                                column_fields=column_fields.get()
+                                table_filter=table_filter
+                                on_filter_change=on_filter_change
+                                event_log_fetcher=Some(fetcher)
+                            />
+                        }.into_any()
+                    }
                     Some(Ok(ExploreData::Aggregate(agg))) => view! {
                         <EventExploreViewport
                             view=applied_view.get()

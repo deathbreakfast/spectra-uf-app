@@ -97,7 +97,9 @@ pub use ops_error::{
     is_permission_denied_message, SpectraOpsError, AUTH_REQUIRED_MESSAGE,
     BACKEND_NOT_INSTALLED_MESSAGE, PERMISSION_DENIED_PREFIX,
 };
-pub use query_live::{execute_event_aggregate, execute_event_query, execute_metrics_query};
+pub use query_live::{
+    count_matching_events, execute_event_aggregate, execute_event_query, execute_metrics_query,
+};
 
 use spectra_core::{
     list_schemas, rows_to_event_result, schema_detail, EventAggregateResult, EventQueryResult,

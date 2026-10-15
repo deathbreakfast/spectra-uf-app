@@ -124,6 +124,11 @@ EmptyState classification, not viewport smoke):
 - `pw-spectra-event-view-pie-unknown-groupby-sad`
 - `pw-spectra-event-explore-permission-denied-sad`
 
+Event log paging and the dashboard total (server counts, not page length):
+
+- `pw-spectra-event-log-server-paging-happy` / `pw-spectra-event-log-filtered-total-sad`
+- `pw-spectra-home-activity-24h-happy`
+
 Layer 1 still holds stub-shape regression tests (`empty_*` helpers) and live-query
 helper contracts (`query_live_contract.rs`), including hardened
 `execute_event_aggregate_group_by_slices_happy_path` (Slices required).
@@ -133,6 +138,9 @@ Covering integ tests (Layer 1):
 - `schema_metadata_list_returns_valid_items_happy_path` / `schema_metadata_detail_unknown_name_is_none_sad`
 - `schema_metadata_detail_matches_list_entry_happy_path`
 - `execute_event_query_empty_table_happy_path` / `execute_metrics_query_empty_happy_path`
+- `execute_event_query_row_count_spans_pages_happy_path` / `execute_event_query_row_count_honors_filter_happy_path`
+- `count_matching_events_excludes_rows_outside_range_sad_path` / `count_matching_events_rejects_bad_table_sad_path`
+- `execute_event_query_falls_back_to_rows_seen_when_count_fails_sad_path`
 - `dashboard_catalog_summary_counts_happy_path`
 - `empty_metrics_query_result_shape_happy_path` / `empty_event_query_result_unknown_table_happy_path`
 - `empty_event_aggregate_result_timeseries_stub_happy_path`

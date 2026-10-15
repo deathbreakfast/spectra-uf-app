@@ -36,6 +36,7 @@ npm run test:headed
 | `pw-spectra-explore-admin-noperms-sad` | `auth_gate.spec.ts` | Admin without table perm → permission denied |
 | `pw-spectra-home-happy-load` | `home.spec.ts` | Home + nav testids |
 | `pw-spectra-home-stat-cards-happy` | `home.spec.ts` | Dashboard stat cards visible |
+| `pw-spectra-home-activity-24h-happy` | `home.spec.ts` | 24h tile counts at least the seeded rows |
 | `pw-spectra-home-recent-schema-happy` | `home.spec.ts` | Seeded schema card on home |
 | `pw-spectra-home-nav-schemas-happy` | `home.spec.ts` | Nav → schema index |
 | `pw-spectra-home-quick-open-detail-happy` | `home.spec.ts` | Quick open → detail |
@@ -50,6 +51,8 @@ npm run test:headed
 | `pw-spectra-schema-card-explore-link-happy` | `schemas.spec.ts` | Card Explore link |
 | `pw-spectra-schema-unknown-sad` | `schemas.spec.ts` | Unknown schema empty state |
 | `pw-spectra-event-log-seeded-row-happy` | `event_explore.spec.ts` | Grid contains seed message |
+| `pw-spectra-event-log-server-paging-happy` | `event_explore.spec.ts` | Footer total exceeds one page; Next page loads rows 51+ |
+| `pw-spectra-event-log-filtered-total-sad` | `event_explore.spec.ts` | Quick search drops the bulk rows from the server total |
 | `pw-spectra-event-log-empty-table-happy` | `event_explore.spec.ts` | Empty table grid mounts |
 | `pw-spectra-event-explore-time-range-happy` | `event_explore.spec.ts` | DateTime range + refresh |
 | `pw-spectra-event-explore-layout-side-by-side-happy` | `event_explore.spec.ts` | Wide: controls left of table |
@@ -79,5 +82,5 @@ npm run test:headed
 | `pw-spectra-help-spotlight-event-explore-green` | `help_spotlight.spec.ts` | Event explore tour |
 | `pw-spectra-help-spotlight-metric-explore-green` | `help_spotlight.spec.ts` | Metric explore tour |
 
-Seed profiles via `POST /api/test/seed-data`: `admin`, `admin_noperms`, `outsider`, `unverified`, `anonymous`; optional `skip_data: true`.
+Seed profiles via `POST /api/test/seed-data`: `admin`, `admin_noperms`, `outsider`, `unverified`, `anonymous`; optional `skip_data: true`, and `bulk_events: N` (at most 500) for extra rows 10+ minutes old, used by the paging specs.
 Pass `{ help_tour: true }` to `seedAuth` to clear Help seen-steps once per tab for the green-path tour specs.

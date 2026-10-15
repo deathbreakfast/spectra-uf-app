@@ -1,11 +1,12 @@
 use leptos::prelude::*;
 use orbital_datatable::{
     DataTable, DataTableEmptyView, DataTableEvents, DataTableFeatures, DataTableFilter,
-    DataTableFooterSlot, DataTableNoResultsView, PagingMode,
+    DataTableFooterSlot, DataTableNoResultsView, DataTableSource, PageFetcher, PagingMode,
 };
 use spectra_core::EventQueryResult;
 
 use super::event_grid_mapper::{to_column_defs, to_row_models};
+use super::event_log_paging::EVENT_LOG_PAGE_SIZE;
 
 #[component]
 #[allow(clippy::needless_pass_by_value)]
@@ -23,6 +24,10 @@ pub fn SpectraEventDataGrid(
     /// When true, keep DataTable toolbar only (hide thead/tbody/footer chrome).
     #[prop(default = false)]
     chart_mode: bool,
+    /// Server page fetcher for the event log. When set (and not `chart_mode`), the table
+    /// pages, sorts, and filters on the server and `result` rows are ignored.
+    #[prop(default = None)]
+    fetcher: Option<PageFetcher>,
 ) -> impl IntoView {
     let columns = result.as_ref().map_or_else(
         || {
@@ -34,7 +39,7 @@ pub fn SpectraEventDataGrid(
         |result| to_column_defs(&result.columns),
     );
 
-    let row_models = if chart_mode {
+    let row_models = if chart_mode || fetcher.is_some() {
         Vec::new()
     } else if let Some(ref result) = result {
         to_row_models(&result.rows, &result.columns)
@@ -89,6 +94,25 @@ pub fn SpectraEventDataGrid(
                         <div style="display:none" aria-hidden="true"></div>
                     </DataTableNoResultsView>
                 </DataTable>
+            </div>
+        }
+        .into_any()
+    } else if let Some(fetcher) = fetcher {
+        let data_source = DataTableSource::Server {
+            fetcher,
+            page_size: EVENT_LOG_PAGE_SIZE,
+        };
+        view! {
+            <div data-testid="spectra-event-data-grid" data-chart-mode="false">
+                <DataTable
+                    columns=columns
+                    data_source=data_source
+                    sortable=true
+                    features=features
+                    filter=Signal::derive(move || filter.get())
+                    data_table_events=events
+                    paging=PagingMode::Paged
+                />
             </div>
         }
         .into_any()

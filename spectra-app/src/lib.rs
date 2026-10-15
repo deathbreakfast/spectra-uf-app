@@ -100,6 +100,11 @@
 //! pie views need a **group-by** field Select before slices render. Use this route when
 //! operators audit recent rows or bucketed counts for a schema-backed event table.
 //!
+//! The event log pages on the server, 50 rows at a time. Sort, column filters, and quick
+//! search go into each page request, and the footer total is the backend's count of matching
+//! rows. The home dashboard's 24h tile sums that count over every registered event table
+//! the operator may query.
+//!
 //! **Prerequisites:** Routes mounted; `QueryTable` plus per-table Gauge `spectra.query.{table}`
 //! via [`require_spectra_query`]; table names must pass `spectra_backend::validate_spectra_query_name`.
 //!

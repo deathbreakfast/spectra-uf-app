@@ -4614,6 +4614,7 @@ dependencies = [
  "orbital-charts",
  "orbital-datatable",
  "orbital-macros",
+ "orbital-paging",
  "orbital-ui",
  "serde",
  "serde_json",
@@ -4632,7 +4633,9 @@ dependencies = [
 name = "spectra-backend"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
+ "log",
  "serde",
  "serde_json",
  "tokio",

@@ -14,10 +14,12 @@ readme = "README.md"
 workspace = true
 
 [dependencies]
+log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 spectra-core = { workspace = true }
 
 [dev-dependencies]
+async-trait = { workspace = true }
 spectra = { workspace = true, features = ["mem"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 chrono = { workspace = true, features = ["clock", "std", "serde"] }

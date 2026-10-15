@@ -13,6 +13,12 @@ import {
   fillGroupBy,
 } from "./fixtures";
 
+/** Parses the total from a DataTable footer such as "51–100 of 1,234". */
+function paginationTotal(text: string): number {
+  const match = text.match(/of\s+([\d,]+)/);
+  return match ? Number(match[1].replace(/,/g, "")) : 0;
+}
+
 test.describe("pw-spectra-event-explore", () => {
   test("pw-spectra-event-explore-layout-side-by-side-happy", async ({ page }) => {
     const seeded = await seedAuth(page, "admin");
@@ -79,6 +85,51 @@ test.describe("pw-spectra-event-explore", () => {
     );
     await waitForHydrated(page);
     await expectGridHasRows(page, seeded.fixtures.seeded_event_count);
+  });
+
+  test("pw-spectra-event-log-server-paging-happy", async ({ page }) => {
+    const seeded = await seedAuth(page, "admin", { bulkEvents: 60 });
+    await page.goto(
+      `/spectra/schema/${encodeURIComponent(seeded.fixtures.event_table)}/explore`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await waitForHydrated(page);
+    await expectGridHasRows(page, 50);
+    const grid = page.getByTestId("spectra-event-data-grid");
+    const range = grid.getByTestId("data-table-pagination-range");
+    // The footer total is the server count, so it exceeds the 50-row page.
+    await expect
+      .poll(async () => paginationTotal(await range.innerText()), { timeout: 60_000 })
+      .toBeGreaterThanOrEqual(seeded.fixtures.seeded_event_count + 60);
+    await expect(grid.locator("tbody")).toContainText(seeded.fixtures.seed_message);
+    const firstRowPage1 = await grid.locator("tbody tr").first().innerText();
+
+    await grid.getByRole("button", { name: "Next page" }).click();
+    await expect(range).toContainText(/^\s*51\D/, { timeout: 60_000 });
+    await expectGridHasRows(page, 1);
+    await expect(grid.locator("tbody tr").first()).not.toHaveText(firstRowPage1);
+  });
+
+  test("pw-spectra-event-log-filtered-total-sad", async ({ page }) => {
+    const seeded = await seedAuth(page, "admin", { bulkEvents: 60 });
+    await openEventExplore(page, seeded.fixtures.event_table);
+    await expectGridHasRows(page, 50);
+    const grid = page.getByTestId("spectra-event-data-grid");
+    const range = grid.getByTestId("data-table-pagination-range");
+    await expect
+      .poll(async () => paginationTotal(await range.innerText()), { timeout: 60_000 })
+      .toBeGreaterThan(50);
+    const unfiltered = paginationTotal(await range.innerText());
+    // Quick search runs on the server: every bulk row drops out of the total.
+    await grid
+      .getByTestId("data-table-quick-search")
+      .getByRole("searchbox")
+      .fill("Warn severity row");
+    await expect
+      .poll(async () => paginationTotal(await range.innerText()), { timeout: 60_000 })
+      .toBeLessThanOrEqual(unfiltered - 60);
+    await expect(grid.locator("tbody")).toContainText("Warn severity row");
+    await expect(grid.locator("tbody")).not.toContainText("Bulk paging row");
   });
 
   test("pw-spectra-event-explore-time-range-happy", async ({ page }) => {

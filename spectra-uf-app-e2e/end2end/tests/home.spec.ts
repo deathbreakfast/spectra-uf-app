@@ -23,6 +23,21 @@ test.describe("pw-spectra-home", () => {
     await expect(page.getByTestId("spectra-stat-schemas")).not.toHaveText(/^0$/);
   });
 
+  test("pw-spectra-home-activity-24h-happy", async ({ page }) => {
+    const seeded = await seedAuth(page, "admin");
+    await page.goto("/spectra", { waitUntil: "domcontentloaded" });
+    await waitForHydrated(page);
+    const tile = page.getByTestId("spectra-stat-24h-events");
+    await expect(tile).toBeVisible({ timeout: 60_000 });
+    await expect
+      .poll(
+        async () =>
+          Number((await tile.innerText()).replace("24h event rows", "").replace(/\D/g, "")),
+        { timeout: 60_000 },
+      )
+      .toBeGreaterThanOrEqual(seeded.fixtures.seeded_event_count);
+  });
+
   test("pw-spectra-home-recent-schema-happy", async ({ page }) => {
     const seeded = await seedAuth(page, "admin");
     await page.goto("/spectra", { waitUntil: "domcontentloaded" });

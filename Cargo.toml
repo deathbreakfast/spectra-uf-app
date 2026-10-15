@@ -122,6 +122,7 @@ orbital = { package = "orbital-ui", git = "https://github.com/unified-field-dev/
 orbital-macros = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-datatable = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-charts = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
+orbital-paging = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 
 # Shared with embedded host / other uf-apps (avoids lockfile path collisions).
 uf-integrations = { git = "https://github.com/unified-field-dev/unified-field-product", branch = "main", default-features = false }

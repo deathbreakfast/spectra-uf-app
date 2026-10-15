@@ -4,12 +4,10 @@ use chrono::{Duration, Utc};
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use spectra_backend::{
-    dashboard_catalog_summary, execute_event_aggregate, DEFAULT_RECENT_SCHEMA_LIMIT,
+    count_matching_events, dashboard_catalog_summary, schema_metadata_list,
+    DEFAULT_RECENT_SCHEMA_LIMIT,
 };
-use spectra_core::{
-    EventAggregateRequest, EventAggregationSpec, EventExploreView, EventMeasure, GridFilterModel,
-    SchemaListItem,
-};
+use spectra_core::{EventQuery, GridFilterModel, GridPaginationModel, SchemaListItem};
 
 #[cfg(feature = "ssr")]
 use super::require_session;
@@ -27,11 +25,12 @@ pub struct SpectraDashboardSummary {
     pub metric_count: u64,
     /// Recent schemas for the home list.
     pub recent_schemas: Vec<SchemaListItem>,
-    /// Sum of 24h event row counts when router + permissions allow.
+    /// Event rows written in the last 24 hours, summed across every registered event table
+    /// the caller may query.
     ///
-    /// `None` when no Spectra query backend is installed. `Some(0)` when the backend
-    /// is present but every recent event table was skipped (permission denied or query
-    /// failure). Individual table errors are omitted from the aggregate by design.
+    /// `None` when no Spectra query backend is installed. Tables the caller lacks permission
+    /// for, or whose count query fails, add nothing, so `Some(0)` can also mean every table
+    /// was skipped.
     pub activity_24h_event_rows: Option<u64>,
 }
 
@@ -42,7 +41,7 @@ pub async fn get_spectra_dashboard_summary() -> Result<SpectraDashboardSummary, 
     require_session(&ctx)?;
 
     let catalog = dashboard_catalog_summary(DEFAULT_RECENT_SCHEMA_LIMIT);
-    let activity_24h_event_rows = activity_24h_rows(&catalog.recent_schemas).await;
+    let activity_24h_event_rows = activity_24h_rows().await;
 
     Ok(SpectraDashboardSummary {
         schema_count: catalog.schema_count,
@@ -53,46 +52,30 @@ pub async fn get_spectra_dashboard_summary() -> Result<SpectraDashboardSummary, 
     })
 }
 
-async fn activity_24h_rows(schemas: &[SchemaListItem]) -> Option<u64> {
+async fn activity_24h_rows() -> Option<u64> {
     let router = spectra_core::SpectraRouter::try_global()?;
     let end = Utc::now();
     let start = end - Duration::hours(24);
     let mut total = 0u64;
 
-    for item in schemas {
+    for item in schema_metadata_list() {
         if item.logging_kind != "event" {
             continue;
         }
         if require_spectra_query(&item.table_or_metric).await.is_err() {
             continue;
         }
-        let request = EventAggregateRequest {
-            table: item.table_or_metric.clone(),
+        let query = EventQuery {
+            table: item.table_or_metric,
             start,
             end,
             partition: None,
+            pagination: GridPaginationModel::default(),
+            sort: Vec::new(),
             filter: GridFilterModel::default(),
-            view: EventExploreView::TimeSeries,
-            aggregation: EventAggregationSpec {
-                measure: EventMeasure::Count,
-                measure_field: None,
-                time_bucket_secs: Some(3600),
-                group_by_field: None,
-                row_fields: Vec::new(),
-                pivot_field: None,
-            },
         };
-        let Ok(result) = execute_event_aggregate(&router, &request).await else {
-            continue;
-        };
-        if let spectra_core::EventAggregateResult::TimeSeries { headline, .. } = result {
-            for card in headline {
-                if card.label.eq_ignore_ascii_case("count") {
-                    if let Ok(n) = card.value.replace(',', "").parse::<u64>() {
-                        total = total.saturating_add(n);
-                    }
-                }
-            }
+        if let Ok(n) = count_matching_events(&router, &query).await {
+            total = total.saturating_add(n);
         }
     }
 
