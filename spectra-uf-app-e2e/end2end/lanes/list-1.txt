@@ -1,0 +1,7 @@
+help_spotlight.spec.ts › help-spotlight › help-spotlight-skips-when-seeded
+help_spotlight.spec.ts › help-spotlight › help-spotlight-skips-auth-gate
+help_spotlight.spec.ts › help-spotlight › help-spotlight-home-green
+help_spotlight.spec.ts › help-spotlight › help-spotlight-schema-index-green
+help_spotlight.spec.ts › help-spotlight › help-spotlight-schema-detail-green
+help_spotlight.spec.ts › help-spotlight › help-spotlight-event-explore-green
+help_spotlight.spec.ts › help-spotlight › help-spotlight-metric-explore-green
