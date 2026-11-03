@@ -129,7 +129,7 @@ Event log paging and the dashboard total (server counts, not page length):
 - `pw-spectra-event-log-server-paging-happy` / `pw-spectra-event-log-filtered-total-sad`
 - `pw-spectra-home-activity-24h-happy`
 
-Layer 1 still holds stub-shape regression tests (`empty_*` helpers) and live-query
+Layer 1 still holds empty-shape fixture tests (`empty_*` helpers) and live-query
 helper contracts (`query_live_contract.rs`), including hardened
 `execute_event_aggregate_group_by_slices_happy_path` (Slices required).
 

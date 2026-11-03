@@ -127,7 +127,8 @@
 //!     filter: Default::default(),
 //! };
 //! let rows = query_events(query).await?;
-//! assert_eq!(rows.row_count, 0);
+//! // `row_count` is the total matching rows across pages, not this page's length.
+//! assert!(rows.row_count >= 1);
 //!
 //! let agg = EventAggregateRequest {
 //!     table: "ops.events".into(),
@@ -140,9 +141,9 @@
 //! assert!(matches!(chart, spectra_core::EventAggregateResult::TimeSeries { .. }));
 //! ```
 //!
-//! On success `rows` carries column definitions and a page of grid rows (empty until the host
-//! wires a live backend); chart queries return an aggregate payload shape the Orbital charts
-//! can render. Denied Gauge permissions surface as `ServerFnError` before query stubs run.
+//! On success `rows` carries column definitions and a page of grid rows from the host's Spectra
+//! router; chart queries return an aggregate payload shape the Orbital charts
+//! can render. Denied Gauge permissions surface as `ServerFnError` before the query runs.
 //!
 //! ## Explore metrics
 //!
@@ -172,8 +173,8 @@
 //! assert_eq!(result.series.len(), 0);
 //! ```
 //!
-//! On success `result` carries `series` and `headline` vectors (empty until the host injects
-//! a live metrics backend). Oversized or path-unsafe metric names are rejected before permission
+//! On success `result` carries `series` and `headline` vectors from the host's Spectra
+//! router (empty when no points match). Oversized or path-unsafe metric names are rejected before permission
 //! checks.
 //!
 //! ## Feature flags
@@ -188,7 +189,7 @@
 //! Mounted under `/spectra` by [`SpectraRoutes`]. Every server fn requires an authenticated
 //! session and [`SPECTRA_QUERY_PERMISSION`]. Explore queries additionally call
 //! [`server::require_spectra_query`] for Gauge `spectra.query.{table}` before the
-//! (currently stubbed, host-injected) query backend runs.
+//! query backend (the host's Spectra router) runs.
 //!
 //! | Path | Page | Key server fn(s) |
 //! |---|---|---|
@@ -231,7 +232,7 @@
 //! - [`mod@help_steps`] — Help spotlight tour inventory; call [`ensure_help_steps_linked`].
 //! - [`mod@server`] — server functions backing the UI, including [`require_spectra_query`].
 //! - [`SpectraPermission`] / [`SPECTRA_QUERY_PERMISSION`] — permission enum and QueryTable name.
-//! - `spectra_backend` — name validation, catalog helpers, and explore stub payloads.
+//! - `spectra_backend` — name validation, catalog helpers, and explore queries and empty-result fixtures.
 
 #![allow(missing_docs)] // uf_app! / orbital_routes_extract emit undocumented associated items.
 #![cfg_attr(
