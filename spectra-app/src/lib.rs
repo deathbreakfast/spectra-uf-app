@@ -23,6 +23,9 @@
 //!   [Get started](#explore-events)
 //! - **Metric explore** — [`MetricExplorePage`] loads time-series and headline stats via
 //!   [`query_metrics`]. [Get started](#explore-metrics)
+//! - **Seed dashboards** — [`DashboardIndexPage`] and [`DashboardDetailPage`] chart the
+//!   curated Photon throughput and Valence DB activity presets from
+//!   `spectra_backend::dashboard_presets`, one [`query_metrics`] call per panel.
 //! - **Server function wrappers** — [`mod@server`] Higgs `#[server]` fns, per-table Gauge
 //!   checks via [`require_spectra_query`], and re-exports of [`spectra_backend`] helpers.
 //! - **Permission manifest** — [`SpectraPermission`] and [`SPECTRA_QUERY_PERMISSION`] for
@@ -194,6 +197,8 @@
 //! | Path | Page | Key server fn(s) |
 //! |---|---|---|
 //! | `/spectra` | [`SpectraHomePage`] | [`list_schema_metadata`] |
+//! | `/spectra/dashboards` | [`DashboardIndexPage`] | none (static presets) |
+//! | `/spectra/dashboards/:id` | [`DashboardDetailPage`] | [`query_metrics`] |
 //! | `/spectra/schema` | [`SchemaIndexPage`] | [`list_schema_metadata`] |
 //! | `/spectra/schema/:name` | [`SchemaDetailPage`] | [`get_schema_metadata`] |
 //! | `/spectra/schema/:name/explore` | [`EventExplorePage`] | [`query_events`], [`query_event_aggregate`] |
@@ -265,11 +270,13 @@ pub use permissions::SpectraPermission;
 
 pub use layout::SpectraLayout;
 pub use lazy_routes::{
-    prefetch_family, EventExploreRoute, MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute,
-    SpectraHomeRoute, SpectraLayoutRouteView,
+    prefetch_family, DashboardDetailRoute, DashboardIndexRoute, EventExploreRoute,
+    MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute, SpectraHomeRoute,
+    SpectraLayoutRouteView,
 };
 pub use pages::{
-    EventExplorePage, MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
+    DashboardDetailPage, DashboardIndexPage, EventExplorePage, MetricExplorePage, SchemaDetailPage,
+    SchemaIndexPage, SpectraHomePage,
 };
 #[cfg(feature = "ssr")]
 pub use server::ensure_table_query_permissions;
@@ -312,6 +319,8 @@ pub fn SpectraRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
     view! {
         <ParentRoute path=path!("spectra") view=SpectraLayoutRouteView>
             <Route path=path!("") view={Lazy::<SpectraHomeRoute>::new()} />
+            <Route path=path!("dashboards") view={Lazy::<DashboardIndexRoute>::new()} />
+            <Route path=path!("dashboards/:id") view={Lazy::<DashboardDetailRoute>::new()} />
             <Route path=path!("schema") view={Lazy::<SchemaIndexRoute>::new()} />
             <Route path=path!("schema/:name") view={Lazy::<SchemaDetailRoute>::new()} />
             <Route path=path!("metric/:name/explore") view={Lazy::<MetricExploreRoute>::new()} />

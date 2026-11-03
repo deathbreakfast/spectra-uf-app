@@ -98,6 +98,9 @@ fn DashboardBody(
                             <div id="spectra-home-view-all">
                                 <Link href="/spectra/schema">"View all schemas →"</Link>
                             </div>
+                            <div id="spectra-home-dashboards">
+                                <Link href="/spectra/dashboards">"Open dashboards →"</Link>
+                            </div>
                         </Flex>
                     </CardContent>
                 </Card>
