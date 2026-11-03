@@ -7,10 +7,10 @@
 //! ## Features
 //!
 //! - **Query name validation** — Reject blank, oversized, or path-unsafe table and metric
-//!   names before Gauge permission checks or explore stubs.
+//!   names before Gauge permission checks or explore queries.
 //!   [Get started](#validate-query-names)
-//! - **Catalog and explore stubs** — Schema list/detail helpers and empty explore payloads
-//!   returned until the host injects live query backends.
+//! - **Catalog and explore queries** — Schema list/detail helpers, live explore queries
+//!   against the host's Spectra router, and empty-result shape fixtures.
 //!   [Get started](#catalog-and-stubs)
 //! - **Gauge permission names** — Format per-table `spectra.query.{table}` strings via
 //!   [`spectra_query_permission_name`].
@@ -47,15 +47,21 @@
 //!
 //! ## Catalog and stubs
 //!
-//! Catalog helpers list registered schemas and resolve detail metadata; explore stubs return
-//! empty result shapes the UI can render before a host wires live Spectra query backends.
-//! [`schema_metadata_list`] and [`schema_metadata_detail`] back schema index/detail pages;
+//! Catalog helpers list registered schemas and resolve detail metadata.
+//! [`schema_metadata_list`] and [`schema_metadata_detail`] back schema index/detail pages.
+//! The explore server functions call [`execute_event_query`], [`execute_event_aggregate`] and
+//! [`execute_metrics_query`] against the host's Spectra router. For event logs,
+//! `EventQueryResult::row_count` is the total of matching rows across all pages (from
+//! [`count_matching_events`]), not the length of the returned page. If the count query fails,
+//! it falls back to the rows seen through the current page.
+//!
 //! [`empty_event_query_result`], [`empty_event_aggregate_result`], and
-//! [`empty_metrics_query_result`] back explore server functions.
+//! [`empty_metrics_query_result`] build empty results with stable column metadata, for tests
+//! and for callers that need a result shape without querying.
 //!
 //! **Prerequisites:** Catalog helpers delegate to `spectra-core` registry functions — they do
-//! not perform network IO. Explore stubs are synchronous and ignore query parameters except
-//! where noted.
+//! not perform network IO. The `empty_*` helpers are synchronous and ignore query parameters
+//! except where noted. The `execute_*` helpers are async and need a `SpectraRouter`.
 //!
 //! ```rust,ignore
 //! use spectra_backend::{
@@ -78,7 +84,7 @@
 //! ```
 //!
 //! On success catalog helpers return registered schema rows or `None` when a name is unknown;
-//! explore stubs return empty vectors with stable column metadata so pages load without error.
+//! the `empty_*` helpers return empty vectors with stable column metadata.
 //!
 //! ## Examples
 //!
@@ -111,7 +117,7 @@ use spectra_core::{
 pub const MAX_SPECTRA_QUERY_NAME_CHARS: usize = 256;
 
 /// Blank, oversized, or path-unsafe table/metric name rejected before Gauge
-/// permission checks or explore stubs.
+/// permission checks or explore queries.
 ///
 /// Callers map this into Leptos `ServerFnError` (or equivalent) at the `#[server]`
 /// boundary; the Display text stays stable for UI and contract tests.
@@ -239,7 +245,7 @@ pub fn schema_metadata_detail(name: &str) -> Option<SchemaDetailDto> {
     schema_detail(name)
 }
 
-/// Empty metrics explore payload returned until the host injects a live backend.
+/// Empty metrics result with no series or headline values.
 #[must_use]
 pub const fn empty_metrics_query_result() -> MetricsQueryResult {
     MetricsQueryResult {
@@ -254,7 +260,7 @@ pub fn empty_event_query_result(table: &str) -> EventQueryResult {
     rows_to_event_result(table, Vec::new(), 0)
 }
 
-/// Empty time-series aggregate payload returned until the host injects a live backend.
+/// Empty time-series aggregate result with no series or headline values.
 #[must_use]
 pub const fn empty_event_aggregate_result() -> EventAggregateResult {
     EventAggregateResult::TimeSeries {

@@ -1,6 +1,6 @@
 # spectra-backend
 
-Pure schema catalog and explore-query stub helpers used by `spectra-app`
+Pure schema catalog and explore-query helpers used by `spectra-app`
 server functions. Kept free of Leptos/UI deps so Layer 1 verification can run
 when the host product UI graph is unavailable.
 
