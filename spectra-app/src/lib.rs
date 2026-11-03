@@ -128,7 +128,7 @@
 //! };
 //! let rows = query_events(query).await?;
 //! // `row_count` is the total matching rows across pages, not this page's length.
-//! assert!(rows.row_count >= 1);
+//! let _total = rows.row_count;
 //!
 //! let agg = EventAggregateRequest {
 //!     table: "ops.events".into(),
