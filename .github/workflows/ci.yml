@@ -54,7 +54,8 @@ jobs:
       # Run locally when the UI graph is green; promote to required when warnings are zero.
       - name: cargo clippy (spectra-app SSR, non-blocking)
         continue-on-error: true
-        run: cargo clippy -p spectra-app --features ssr --all-targets -- -D warnings
+        # `|| true` as well: tachyon-ci runs these lines itself and ignores continue-on-error.
+        run: cargo clippy -p spectra-app --features ssr --all-targets -- -D warnings || true
 
   test-backend:
     runs-on: ubuntu-latest
