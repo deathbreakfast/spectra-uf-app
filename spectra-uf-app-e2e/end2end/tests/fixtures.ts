@@ -93,6 +93,18 @@ const SPECTRA_HELP_STEPS_SEEN = [
     replay: false,
   },
   {
+    route: "/spectra/graph",
+    feature_highlight: "spectra-callsite-window",
+    spotlight: "spectra-callsite-window",
+    replay: false,
+  },
+  {
+    route: "/spectra/graph",
+    feature_highlight: "spectra-callsite-graph",
+    spotlight: "spectra-callsite-graph",
+    replay: false,
+  },
+  {
     route: "/spectra/schema",
     feature_highlight: "spectra-schema-nav",
     spotlight: "spectra-nav",

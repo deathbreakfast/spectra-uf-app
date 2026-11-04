@@ -5,3 +5,11 @@ help_spotlight.spec.ts › help-spotlight › help-spotlight-schema-index-green
 help_spotlight.spec.ts › help-spotlight › help-spotlight-schema-detail-green
 help_spotlight.spec.ts › help-spotlight › help-spotlight-event-explore-green
 help_spotlight.spec.ts › help-spotlight › help-spotlight-metric-explore-green
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-sites-happy
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-edge-list-happy
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-table-link-happy
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-window-happy
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-untracked-notice-happy
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-nav-happy
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-no-table-access-sad
+callsite_graph.spec.ts › pw-spectra-callsite-graph › pw-spectra-callsite-graph-anonymous-sad

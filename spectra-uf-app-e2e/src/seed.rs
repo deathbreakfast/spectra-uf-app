@@ -202,6 +202,24 @@ async fn seed_spectra_rows(
         }),
         stale,
     );
+    // Rows stamped like a generated `*Logger` call: two lines in one file, one in another, and
+    // one older than the graph's default 24h window.
+    for (file, line, ts) in [
+        ("e2e/checkout.rs", 12, recent - chrono::Duration::minutes(3)),
+        ("e2e/checkout.rs", 12, recent - chrono::Duration::minutes(4)),
+        ("e2e/checkout.rs", 48, recent - chrono::Duration::minutes(5)),
+        ("e2e/worker.rs", 7, recent - chrono::Duration::minutes(6)),
+        ("e2e/legacy.rs", 3, now - chrono::Duration::days(2)),
+    ] {
+        try_log_event_at(
+            E2E_EVENT_TABLE,
+            &json!({
+                "message": format!("Callsite row from {file}:{line}"),
+                "_callsite": { "file": file, "line": line },
+            }),
+            ts,
+        );
+    }
     let bulk_start = now - chrono::Duration::minutes(10);
     for i in 0..bulk_events.min(MAX_BULK_EVENTS) {
         try_log_event_at(

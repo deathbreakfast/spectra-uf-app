@@ -92,9 +92,12 @@
 //! are listed in `docs/VERIFICATION.md`. Runnable host: `examples/protected-spectra-host`
 //! (inventory `spectra` / `/spectra`).
 
+mod callsite_graph;
 mod dashboard;
 mod dashboard_presets;
 mod query_live;
+
+pub use callsite_graph::{execute_callsite_graph, fold_callsites, CallsiteGraph, EmitSite};
 
 pub use dashboard::{
     dashboard_catalog_summary, DashboardCatalogSummary, DEFAULT_RECENT_SCHEMA_LIMIT,

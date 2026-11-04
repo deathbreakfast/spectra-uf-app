@@ -45,6 +45,7 @@ pub fn SpectraLayout() -> impl IntoView {
                                 <NavigationLink path="/spectra" value="/spectra" icon=icondata::AiHomeOutlined test_id="nav-spectra-home">"Home"</NavigationLink>
                                 <NavigationLink path="/spectra/schema" value="/spectra/schema" icon=icondata::AiDatabaseOutlined test_id="nav-spectra-schemas">"Schemas"</NavigationLink>
                                 <NavigationLink path="/spectra/dashboards" value="/spectra/dashboards" icon=icondata::AiDashboardOutlined test_id="nav-spectra-dashboards">"Dashboards"</NavigationLink>
+                                <NavigationLink path="/spectra/graph" value="/spectra/graph" icon=icondata::AiApartmentOutlined test_id="nav-spectra-graph">"Callsites"</NavigationLink>
                             </div>
                         </NavigationBody>
                     </Navigation>
@@ -104,6 +105,13 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                         </BreadcrumbItem>
                         <BreadcrumbItem>
                             <BreadcrumbButton current=true>{title}</BreadcrumbButton>
+                        </BreadcrumbItem>
+                    }.into_any());
+                }
+                if path == "/spectra/graph" {
+                    return Some(view! {
+                        <BreadcrumbItem>
+                            <BreadcrumbButton current=true>"Callsites"</BreadcrumbButton>
                         </BreadcrumbItem>
                     }.into_any());
                 }
