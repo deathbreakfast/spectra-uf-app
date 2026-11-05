@@ -30,9 +30,12 @@ pub fn MetricToolbar(
                     </Button>
                 </span>
                 <Caption1>
-                    {move || match last_refreshed.get() {
-                        Some(ts) => format!("Last refreshed {}", ts.format("%H:%M:%S UTC")),
-                        None => String::new(),
+                    {move || {
+                        last_refreshed
+                            .get()
+                            .map_or_else(String::new, |ts| {
+                                format!("Last refreshed {}", ts.format("%H:%M:%S UTC"))
+                            })
                     }}
                 </Caption1>
             </Flex>

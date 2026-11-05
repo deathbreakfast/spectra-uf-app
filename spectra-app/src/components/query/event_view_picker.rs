@@ -41,8 +41,7 @@ fn view_value(v: EventExploreView) -> &'static str {
     VIEWS
         .iter()
         .find(|(view, _, _, _)| *view == v)
-        .map(|(_, _, value, _)| *value)
-        .unwrap_or("event_log")
+        .map_or("event_log", |(_, _, value, _)| *value)
 }
 
 fn parse_view(value: &str) -> Option<EventExploreView> {
@@ -54,7 +53,7 @@ fn parse_view(value: &str) -> Option<EventExploreView> {
 
 /// Line chart is an alias of Time series (removed from the picker).
 #[must_use]
-pub fn normalize_view(view: EventExploreView) -> EventExploreView {
+pub const fn normalize_view(view: EventExploreView) -> EventExploreView {
     match view {
         EventExploreView::LineChart => EventExploreView::TimeSeries,
         other => other,

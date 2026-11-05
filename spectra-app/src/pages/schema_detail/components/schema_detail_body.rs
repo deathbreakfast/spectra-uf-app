@@ -11,7 +11,7 @@ use crate::server::get_schema_metadata;
 
 use super::quick_actions_card::QuickActionsCard;
 
-/// Maps schema field DTOs into DataTable rows (Field / Type / Classification).
+/// Maps schema field DTOs into `DataTable` rows (Field / Type / Classification).
 #[must_use]
 pub fn schema_fields_to_rows(fields: &[SchemaFieldDto]) -> Vec<DataTableRowModel> {
     fields

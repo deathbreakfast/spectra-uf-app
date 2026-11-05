@@ -22,7 +22,7 @@ pub fn SchemaCard(
 ) -> impl IntoView {
     let name = item.table_or_metric.clone();
     let kind = item.logging_kind.clone();
-    let description = item.description.clone().unwrap_or_default();
+    let description = item.description.unwrap_or_default();
     let href = if kind == "metric" {
         spectra_metric_explore_path(&name)
     } else {

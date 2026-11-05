@@ -92,7 +92,7 @@
 //!
 //! ## Explore events
 //!
-//! Event explore pages start on a paginated event log with DataTable search / Filters /
+//! Event explore pages start on a paginated event log with `DataTable` search / Filters /
 //! Columns / export. [`EventExplorePage`] calls [`query_events`] for rows and
 //! [`query_event_aggregate`] after **See** for time-series or grouped charts. Operators pick
 //! an [`spectra_core::EventExploreView`] (event log, time series, bar, pie), set the Orbital
@@ -231,9 +231,17 @@
 //! - [`SpectraLayout`] — shared app bar / nav shell wrapping every route.
 //! - [`mod@help_steps`] — Help spotlight tour inventory; call [`ensure_help_steps_linked`].
 //! - [`mod@server`] — server functions backing the UI, including [`require_spectra_query`].
-//! - [`SpectraPermission`] / [`SPECTRA_QUERY_PERMISSION`] — permission enum and QueryTable name.
+//! - [`SpectraPermission`] / [`SPECTRA_QUERY_PERMISSION`] — permission enum and `QueryTable` name.
 //! - `spectra_backend` — name validation, catalog helpers, and explore queries and empty-result fixtures.
 
+// `#[component]` copies prop names into generated docs, `#[lazy_route]` emits `_this`, and Leptos
+// props are owned by convention; `view!` bodies run long.
+#![allow(
+    clippy::doc_markdown,
+    clippy::used_underscore_binding,
+    clippy::needless_pass_by_value,
+    clippy::too_many_lines
+)]
 #![allow(missing_docs)] // uf_app! / orbital_routes_extract emit undocumented associated items.
 #![cfg_attr(
     any(feature = "ssr", feature = "hydrate"),

@@ -49,7 +49,7 @@ pub fn MetricExplorePanel(
             <MetricToolbar
                 range_secs=Signal::derive(move || range_secs.get())
                 on_range=Callback::new(move |s| set_range_secs.set(s))
-                on_refresh=Callback::new(move |_| query_res.refetch())
+                on_refresh=Callback::new(move |()| query_res.refetch())
                 last_refreshed=Signal::derive(move || last_refreshed.get())
             />
             <Transition fallback=ChartSkeleton>

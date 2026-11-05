@@ -1,11 +1,11 @@
-//! Map Orbital DataTable filter models onto Spectra [`GridFilterModel`].
+//! Map Orbital `DataTable` filter models onto Spectra [`GridFilterModel`].
 
 use orbital_datatable::{DataTableFilter, DataValue, FilterLogic, FilterOperator, FilterRule};
 use orbital_paging::{FilterLogicWire, FilterQuery};
 use serde_json::json;
 use spectra_core::{GridFilterItem, GridFilterModel, GridFilterOperator, GridLogicOperator};
 
-/// Convert a DataTable filter into a Spectra grid filter (structured items only).
+/// Convert a `DataTable` filter into a Spectra grid filter (structured items only).
 #[must_use]
 pub fn data_table_filter_to_grid(filter: &DataTableFilter) -> GridFilterModel {
     GridFilterModel {
@@ -78,7 +78,7 @@ fn filter_rule_to_grid_item(rule: &FilterRule) -> Option<GridFilterItem> {
     })
 }
 
-fn map_operator(op: FilterOperator) -> Option<GridFilterOperator> {
+const fn map_operator(op: FilterOperator) -> Option<GridFilterOperator> {
     Some(match op {
         FilterOperator::Equals | FilterOperator::Is => GridFilterOperator::Equals,
         FilterOperator::NotEquals | FilterOperator::IsNot => GridFilterOperator::DoesNotEqual,
