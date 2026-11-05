@@ -44,6 +44,7 @@ pub fn SpectraLayout() -> impl IntoView {
                             <div id="spectra-nav">
                                 <NavigationLink path="/spectra" value="/spectra" icon=icondata::AiHomeOutlined test_id="nav-spectra-home">"Home"</NavigationLink>
                                 <NavigationLink path="/spectra/schema" value="/spectra/schema" icon=icondata::AiDatabaseOutlined test_id="nav-spectra-schemas">"Schemas"</NavigationLink>
+                                <NavigationLink path="/spectra/dashboards" value="/spectra/dashboards" icon=icondata::AiDashboardOutlined test_id="nav-spectra-dashboards">"Dashboards"</NavigationLink>
                             </div>
                         </NavigationBody>
                     </Navigation>
@@ -81,6 +82,28 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                     return Some(view! {
                         <BreadcrumbItem>
                             <BreadcrumbButton current=true>"Schemas"</BreadcrumbButton>
+                        </BreadcrumbItem>
+                    }.into_any());
+                }
+                if path == "/spectra/dashboards" {
+                    return Some(view! {
+                        <BreadcrumbItem>
+                            <BreadcrumbButton current=true>"Dashboards"</BreadcrumbButton>
+                        </BreadcrumbItem>
+                    }.into_any());
+                }
+                if path.starts_with("/spectra/dashboards/") {
+                    let id = params.with(|p| p.get("id").unwrap_or_default());
+                    let title = spectra_backend::dashboard_preset(&id)
+                        .map_or(id, |preset| preset.title.to_string());
+                    return Some(view! {
+                        <BreadcrumbItem>
+                            <Link href="/spectra/dashboards">
+                                <BreadcrumbButton>"Dashboards"</BreadcrumbButton>
+                            </Link>
+                        </BreadcrumbItem>
+                        <BreadcrumbItem>
+                            <BreadcrumbButton current=true>{title}</BreadcrumbButton>
                         </BreadcrumbItem>
                     }.into_any());
                 }

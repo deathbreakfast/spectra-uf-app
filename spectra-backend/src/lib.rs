@@ -93,10 +93,14 @@
 //! (inventory `spectra` / `/spectra`).
 
 mod dashboard;
+mod dashboard_presets;
 mod query_live;
 
 pub use dashboard::{
     dashboard_catalog_summary, DashboardCatalogSummary, DEFAULT_RECENT_SCHEMA_LIMIT,
+};
+pub use dashboard_presets::{
+    dashboard_preset, dashboard_presets, spectra_dashboard_path, DashboardPanel, DashboardPreset,
 };
 mod ops_error;
 pub use ops_error::{
