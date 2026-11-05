@@ -234,8 +234,6 @@
 //! - [`SpectraPermission`] / [`SPECTRA_QUERY_PERMISSION`] — permission enum and `QueryTable` name.
 //! - `spectra_backend` — name validation, catalog helpers, and explore queries and empty-result fixtures.
 
-#![allow(missing_docs)]
-// uf_app! / orbital_routes_extract emit undocumented associated items.
 // `#[component]` copies prop names into generated docs, `#[lazy_route]` emits `_this`, and Leptos
 // props are owned by convention; `view!` bodies run long.
 #![allow(
@@ -244,6 +242,7 @@
     clippy::needless_pass_by_value,
     clippy::too_many_lines
 )]
+#![allow(missing_docs)] // uf_app! / orbital_routes_extract emit undocumented associated items.
 #![cfg_attr(
     any(feature = "ssr", feature = "hydrate"),
     allow(
