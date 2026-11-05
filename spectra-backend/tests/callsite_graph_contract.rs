@@ -11,6 +11,10 @@ use spectra::{MemEventsBackend, MemMetricsBackend, Spectra};
 use spectra_backend::execute_callsite_graph;
 use spectra_core::{EventStorageBackend, MetricsStorageBackend, SpectraRouter};
 
+/// Generated loggers emit through a process-wide sink bound by the latest build, so tests that
+/// build a Spectra run one at a time.
+static SPECTRA_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 const SMOKE_TABLE: &str = "platform_smoke_event";
 const RAW_TABLE: &str = "integ.raw_events";
 
@@ -38,6 +42,7 @@ async fn graph_for(router: &SpectraRouter, tables: &[&str]) -> spectra_backend::
 
 #[tokio::test]
 async fn generated_logger_rows_become_emit_sites_happy_path() {
+    let _guard = SPECTRA_LOCK.lock().await;
     let events = Arc::new(MemEventsBackend::new());
     let spectra = mem_spectra(Arc::clone(&events));
 
@@ -46,10 +51,17 @@ async fn generated_logger_rows_become_emit_sites_happy_path() {
     let second_line = line!() + 1;
     PlatformSmokeEventLogger::log("second".to_string());
     PlatformSmokeEventLogger::log("second again".to_string());
-    tokio::time::sleep(std::time::Duration::from_millis(80)).await;
-    spectra.flush_persist().await.expect("flush");
-
-    let graph = graph_for(&spectra.router(), &[SMOKE_TABLE]).await;
+    // The logger hands rows to an async sink, so wait until all three have landed.
+    let router = spectra.router();
+    let mut graph = graph_for(&router, &[SMOKE_TABLE]).await;
+    for _ in 0..100 {
+        if graph.scanned >= 3 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        spectra.flush_persist().await.expect("flush");
+        graph = graph_for(&router, &[SMOKE_TABLE]).await;
+    }
 
     assert_eq!(graph.tables, vec![SMOKE_TABLE.to_owned()]);
     assert_eq!(graph.untracked, 0);
@@ -67,6 +79,7 @@ async fn generated_logger_rows_become_emit_sites_happy_path() {
 
 #[tokio::test]
 async fn rows_without_callsite_are_counted_not_graphed_sad_path() {
+    let _guard = SPECTRA_LOCK.lock().await;
     let events = Arc::new(MemEventsBackend::new());
     events
         .append_row(RAW_TABLE, &json!({ "message": "raw" }), Utc::now(), None)
@@ -84,6 +97,7 @@ async fn rows_without_callsite_are_counted_not_graphed_sad_path() {
 
 #[tokio::test]
 async fn empty_table_list_yields_empty_graph_sad_path() {
+    let _guard = SPECTRA_LOCK.lock().await;
     let spectra = mem_spectra(Arc::new(MemEventsBackend::new()));
     let graph = graph_for(&spectra.router(), &[]).await;
     assert_eq!(graph, spectra_backend::CallsiteGraph::default());
