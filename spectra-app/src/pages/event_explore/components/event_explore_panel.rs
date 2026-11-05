@@ -58,7 +58,7 @@ pub fn EventExplorePanel(
         schema_res
             .get()
             .and_then(|r| r.ok().flatten())
-            .map_or_default(|d| {
+            .map_or_else(Vec::new, |d| {
                 d.fields
                     .into_iter()
                     .map(|f| f.name)
