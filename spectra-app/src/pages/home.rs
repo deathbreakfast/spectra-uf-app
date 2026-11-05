@@ -16,7 +16,7 @@ use spectra_backend::{
 /// Spectra home dashboard: catalog stats, recent schemas, and quick open.
 #[component]
 pub fn SpectraHomePage() -> impl IntoView {
-    let summary_res = Resource::new(|| (), |_| get_spectra_dashboard_summary());
+    let summary_res = Resource::new(|| (), |()| get_spectra_dashboard_summary());
 
     view! {
         <ContentContainer data_testid="spectra-home-page">

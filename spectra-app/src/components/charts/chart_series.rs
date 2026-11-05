@@ -21,6 +21,7 @@ fn sample_series_for_width<T: Clone>(points: &[T], width_px: f64) -> Vec<T> {
         return points.to_vec();
     }
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let budget = (width_px / 2.0).ceil() as usize + 2;
     if points.len() <= budget {
         return points.to_vec();
@@ -183,9 +184,12 @@ mod tests {
         }];
         let (x_axis, chart_series) = chart_from_time_series(&series);
         assert_eq!(x_axis.len(), 1);
-        assert_eq!(x_axis[0].data.as_ref().map(|d| d.len()), Some(2));
+        assert_eq!(x_axis[0].data.as_ref().map(std::vec::Vec::len), Some(2));
         assert_eq!(chart_series.len(), 1);
-        assert_eq!(chart_series[0].data.as_ref().map(|d| d.len()), Some(2));
+        assert_eq!(
+            chart_series[0].data.as_ref().map(std::vec::Vec::len),
+            Some(2)
+        );
         let cats = x_axis[0].data.as_ref().expect("categories");
         assert_ne!(cats[0], cats[1]);
     }
@@ -311,7 +315,7 @@ mod tests {
         }];
         let (_, chart_series) = chart_from_time_series(&series);
         assert_eq!(
-            chart_series[0].data.as_ref().map(Vec::as_slice),
+            chart_series[0].data.as_deref(),
             Some([1.0, 2.0, 3.0].as_slice())
         );
     }
@@ -322,6 +326,7 @@ mod tests {
         let points: Vec<MetricPointDto> = (0..10_000)
             .map(|i| MetricPointDto {
                 ts: now + chrono::Duration::seconds(i),
+                #[allow(clippy::cast_precision_loss)]
                 value: i as f64,
             })
             .collect();
@@ -330,8 +335,10 @@ mod tests {
             points,
         }];
         let (_, chart_series) = chart_from_time_series(&series);
-        let len = chart_series[0].data.as_ref().map(|d| d.len()).unwrap_or(0);
-        assert!(len <= (DISPLAY_SAMPLE_WIDTH_PX / 2.0).ceil() as usize + 2);
+        let len = chart_series[0].data.as_ref().map_or(0, std::vec::Vec::len);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let max = (DISPLAY_SAMPLE_WIDTH_PX / 2.0).ceil() as usize + 2;
+        assert!(len <= max);
     }
 
     #[test]
@@ -347,6 +354,6 @@ mod tests {
             },
         ];
         let (_, series) = chart_from_slices(&slices, ChartType::Pie);
-        assert_eq!(series[0].data.as_ref().map(|d| d.len()), Some(2));
+        assert_eq!(series[0].data.as_ref().map(std::vec::Vec::len), Some(2));
     }
 }

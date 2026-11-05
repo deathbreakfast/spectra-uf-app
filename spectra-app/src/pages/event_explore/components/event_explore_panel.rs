@@ -58,26 +58,24 @@ pub fn EventExplorePanel(
         schema_res
             .get()
             .and_then(|r| r.ok().flatten())
-            .map(|d| {
+            .map_or_default(|d| {
                 d.fields
                     .into_iter()
                     .map(|f| f.name)
                     .filter(|n| n != "ts")
                     .collect::<Vec<_>>()
             })
-            .unwrap_or_default()
     });
 
     let column_fields = Memo::new(move |_| {
-        schema_res
-            .get()
-            .and_then(|r| r.ok().flatten())
-            .map(|d| {
+        schema_res.get().and_then(|r| r.ok().flatten()).map_or_else(
+            || vec![("ts".to_string(), "ts".to_string())],
+            |d| {
                 let mut cols = vec![("ts".to_string(), "ts".to_string())];
                 cols.extend(d.fields.into_iter().map(|f| (f.name.clone(), f.name)));
                 cols
-            })
-            .unwrap_or_else(|| vec![("ts".to_string(), "ts".to_string())])
+            },
+        )
     });
 
     let explore_res = Resource::new(
@@ -192,12 +190,12 @@ pub fn EventExplorePanel(
                 range=range
                 picker_view=Signal::derive(move || picker_view.get())
                 on_picker_view=Callback::new(move |v| picker_view.set(normalize_view(v)))
-                on_see=Callback::new(move |_| {
+                on_see=Callback::new(move |()| {
                     applied_view.set(normalize_view(picker_view.get()));
                 })
                 aggregation=aggregation
                 field_options=Signal::derive(move || field_options.get())
-                on_refresh=Callback::new(move |_| explore_res.refetch())
+                on_refresh=Callback::new(move |()| explore_res.refetch())
                 last_refreshed=Signal::derive(move || last_refreshed.get())
             />
             <div
@@ -230,8 +228,8 @@ pub fn EventExplorePanel(
                             view=applied_view.get()
                             row_result=None
                             aggregate_result=Some(agg)
-                            group_by_field=aggregation.get().group_by_field.clone()
-                            row_fields=aggregation.get().row_fields.clone()
+                            group_by_field=aggregation.get().group_by_field
+                            row_fields=aggregation.get().row_fields
                             column_fields=column_fields.get()
                             table_filter=table_filter
                             on_filter_change=on_filter_change

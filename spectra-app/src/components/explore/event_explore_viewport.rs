@@ -46,8 +46,7 @@ pub fn EventExploreViewport(
                 {match view {
                     EventExploreView::EventLog => ().into_any(),
                     EventExploreView::TimeSeries | EventExploreView::LineChart => {
-                        aggregate_result
-                            .map(|r| {
+                        aggregate_result.map_or_else(|| ().into_any(), |r| {
                                 view! {
                                     <div
                                         data-testid="spectra-event-explore-chart-body"
@@ -58,12 +57,10 @@ pub fn EventExploreViewport(
                                 }
                                 .into_any()
                             })
-                            .unwrap_or_else(|| ().into_any())
                     }
                     EventExploreView::PieChart | EventExploreView::BarChart => {
                         let gb = group_by_field.clone();
-                        aggregate_result
-                            .map(|r| {
+                        aggregate_result.map_or_else(|| ().into_any(), |r| {
                                 view! {
                                     <div
                                         data-testid="spectra-event-explore-chart-body"
@@ -74,12 +71,10 @@ pub fn EventExploreViewport(
                                 }
                                 .into_any()
                             })
-                            .unwrap_or_else(|| ().into_any())
                     }
                     EventExploreView::Table => {
                         let row_fields_selected = !row_fields.is_empty();
-                        aggregate_result
-                            .map(|r| {
+                        aggregate_result.map_or_else(|| ().into_any(), |r| {
                                 view! {
                                     <div
                                         data-testid="spectra-event-explore-chart-body"
@@ -93,7 +88,6 @@ pub fn EventExploreViewport(
                                 }
                                 .into_any()
                             })
-                            .unwrap_or_else(|| ().into_any())
                     }
                 }}
             </Flex>

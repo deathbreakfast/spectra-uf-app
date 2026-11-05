@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos_router::hooks::use_navigate;
+use leptos_router::{hooks::use_navigate, NavigateOptions};
 use orbital::components::{Card, CardContent, CardHeader, Title3};
 use orbital::primitives::{Button, ButtonAppearance};
 use spectra_backend::{spectra_metric_explore_path, spectra_schema_explore_path};
@@ -28,7 +28,7 @@ pub fn QuickActionsCard(
                     <Button
                         appearance=ButtonAppearance::Primary
                         on:click=move |_| {
-                            navigate(&href, Default::default());
+                            navigate(&href, NavigateOptions::default());
                         }
                     >
                         "Open explore"
