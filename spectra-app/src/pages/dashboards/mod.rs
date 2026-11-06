@@ -52,8 +52,16 @@ pub fn DashboardDetailPage() -> impl IntoView {
 
     view! {
         <ContentContainer data_testid="spectra-dashboard-page">
-            {move || match dashboard_preset(&id.get()) {
-                Some(preset) => view! {
+            {move || dashboard_preset(&id.get()).map_or_else(
+                || view! {
+                    <div data-testid="spectra-dashboard-not-found">
+                        <EmptyState
+                            message="Dashboard not found"
+                            description="Pick one from the dashboards list."
+                        />
+                    </div>
+                }.into_any(),
+                |preset| view! {
                     <Flex vertical=true gap=SpacingSize::Size240.flex_gap()>
                         <Title3>{preset.title}</Title3>
                         <Caption1>{preset.description}</Caption1>
@@ -64,15 +72,7 @@ pub fn DashboardDetailPage() -> impl IntoView {
                         </AutoGrid>
                     </Flex>
                 }.into_any(),
-                None => view! {
-                    <div data-testid="spectra-dashboard-not-found">
-                        <EmptyState
-                            message="Dashboard not found"
-                            description="Pick one from the dashboards list."
-                        />
-                    </div>
-                }.into_any(),
-            }}
+            )}
         </ContentContainer>
     }
 }
