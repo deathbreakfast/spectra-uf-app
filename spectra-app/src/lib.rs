@@ -307,19 +307,13 @@ pub use permissions::SpectraPermission;
 
 pub use layout::SpectraLayout;
 pub use lazy_routes::{
-    prefetch_family, DashboardDetailRoute, DashboardIndexRoute, EventExploreRoute,
-    MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute, SpectraHomeRoute,
+    prefetch_family, CallsiteGraphRoute, DashboardDetailRoute, DashboardIndexRoute,
+    EventExploreRoute, MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute, SpectraHomeRoute,
     SpectraLayoutRouteView,
 };
 pub use pages::{
-    DashboardDetailPage, DashboardIndexPage, EventExplorePage, MetricExplorePage, SchemaDetailPage,
-    SchemaIndexPage, SpectraHomePage,
-    prefetch_family, CallsiteGraphRoute, EventExploreRoute, MetricExploreRoute, SchemaDetailRoute,
-    SchemaIndexRoute, SpectraHomeRoute, SpectraLayoutRouteView,
-};
-pub use pages::{
-    CallsiteGraphPage, EventExplorePage, MetricExplorePage, SchemaDetailPage, SchemaIndexPage,
-    SpectraHomePage,
+    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage,
+    MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
 };
 #[cfg(feature = "ssr")]
 pub use server::ensure_table_query_permissions;

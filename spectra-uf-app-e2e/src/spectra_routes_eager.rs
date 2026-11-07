@@ -11,8 +11,8 @@ use leptos_router::{
     path,
 };
 use spectra_app::{
-    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage, MetricExplorePage,
-    SchemaDetailPage, SchemaIndexPage, SpectraHomePage, SpectraLayout,
+    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage,
+    MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage, SpectraLayout,
 };
 
 /// Same paths as [`spectra_app::SpectraRoutes`], without Lazy route views.
