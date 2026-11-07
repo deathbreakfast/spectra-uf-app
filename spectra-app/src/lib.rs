@@ -26,6 +26,8 @@
 //! - **Seed dashboards** — [`DashboardIndexPage`] and [`DashboardDetailPage`] chart the
 //!   curated Photon throughput and Valence DB activity presets from
 //!   `spectra_backend::dashboard_presets`, one [`query_metrics`] call per panel.
+//! - **Callsite graph** — [`CallsiteGraphPage`] links the source lines that logged event rows to
+//!   the tables they wrote, via [`get_callsite_graph`]. [Get started](#trace-emit-sites)
 //! - **Server function wrappers** — [`mod@server`] Higgs `#[server]` fns, per-table Gauge
 //!   checks via [`require_spectra_query`], and re-exports of [`spectra_backend`] helpers.
 //! - **Permission manifest** — [`SpectraPermission`] and [`SPECTRA_QUERY_PERMISSION`] for
@@ -231,6 +233,33 @@
 //! spotlight steps unless the operator already finished them. Missing
 //! `offering-help` leaves the player unmounted — no tour, no panic.
 //!
+//! ## Trace emit sites
+//!
+//! Generated `*Logger` helpers stamp each event row with the `file` and `line` of the call that
+//! wrote it. [`CallsiteGraphPage`] at `/spectra/graph` folds the newest rows of every event table
+//! the operator may query into one node per `file:line`, drawn beside the table it writes, with a
+//! row count per node and a full list below. A 1h, 6h, 24h, or 7d window sets how far back the
+//! scan reaches. Open this route to find which code path is filling a table.
+//!
+//! **Prerequisites:** Routes mounted; `QueryTable`; per-table Gauge `spectra.query.{table}` for
+//! each table that should appear; rows written through a generated logger. Rows written any other
+//! way have no callsite and are counted in a notice, not drawn. Metrics carry no callsite, so they
+//! never appear. Each table contributes at most its newest 1000 rows, and the page says when a
+//! table had more.
+//!
+//! ```rust,ignore
+//! use spectra_app::{get_callsite_graph, CallsiteGraphPage};
+//!
+//! let _page: CallsiteGraphPage;
+//! let graph = get_callsite_graph(24).await?;
+//! for site in &graph.sites {
+//!     println!("{}:{} wrote {} rows to {}", site.file, site.line, site.count, site.table);
+//! }
+//! ```
+//!
+//! On success `sites` is sorted by file, line, then table, and `tables` lists each table that has
+//! at least one site. With no Spectra backend installed the graph comes back empty.
+//!
 //! ## Where to look next
 //!
 //! - [`SpectraLayout`] — shared app bar / nav shell wrapping every route.
@@ -278,18 +307,18 @@ pub use permissions::SpectraPermission;
 
 pub use layout::SpectraLayout;
 pub use lazy_routes::{
-    prefetch_family, DashboardDetailRoute, DashboardIndexRoute, EventExploreRoute,
-    MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute, SpectraHomeRoute,
+    prefetch_family, CallsiteGraphRoute, DashboardDetailRoute, DashboardIndexRoute,
+    EventExploreRoute, MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute, SpectraHomeRoute,
     SpectraLayoutRouteView,
 };
 pub use pages::{
-    DashboardDetailPage, DashboardIndexPage, EventExplorePage, MetricExplorePage, SchemaDetailPage,
-    SchemaIndexPage, SpectraHomePage,
+    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage,
+    MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
 };
 #[cfg(feature = "ssr")]
 pub use server::ensure_table_query_permissions;
 pub use server::{
-    get_schema_metadata, get_spectra_dashboard_summary, list_schema_metadata,
+    get_callsite_graph, get_schema_metadata, get_spectra_dashboard_summary, list_schema_metadata,
     query_event_aggregate, query_events, query_metrics, require_spectra_query,
     server_fn_is_permission_denied, SpectraDashboardSummary, SPECTRA_QUERY_PERMISSION,
 };
@@ -330,6 +359,7 @@ pub fn SpectraRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
             <Route path=path!("dashboards") view={Lazy::<DashboardIndexRoute>::new()} />
             <Route path=path!("dashboards/:id") view={Lazy::<DashboardDetailRoute>::new()} />
             <Route path=path!("schema") view={Lazy::<SchemaIndexRoute>::new()} />
+            <Route path=path!("graph") view={Lazy::<CallsiteGraphRoute>::new()} />
             <Route path=path!("schema/:name") view={Lazy::<SchemaDetailRoute>::new()} />
             <Route path=path!("metric/:name/explore") view={Lazy::<MetricExploreRoute>::new()} />
             <Route path=path!("schema/:name/explore") view={Lazy::<EventExploreRoute>::new()} />

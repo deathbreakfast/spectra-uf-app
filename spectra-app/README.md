@@ -1,6 +1,6 @@
 # spectra-app
 
-Leptos operations UI for Spectra: schema browsing and event/metric explore under
+Leptos operations UI for Spectra: schema browsing, event/metric explore, and a callsite graph under
 `/spectra`.
 
 ## Quickstart
