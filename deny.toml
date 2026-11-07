@@ -58,7 +58,6 @@ allow-git = [
     "https://github.com/unified-field-dev/photon-leptos",
     "https://github.com/unified-field-dev/quark",
     "https://github.com/unified-field-dev/record-history",
-    "https://github.com/unified-field-dev/Spectra",
     "https://github.com/unified-field-dev/spectra",
     "https://github.com/unified-field-dev/uf-notifications",
     "https://github.com/unified-field-dev/unified-field-product",
