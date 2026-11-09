@@ -113,6 +113,29 @@ fn preset_metrics() -> impl Iterator<Item = &'static str> {
         .flat_map(|preset| preset.panels.iter().map(|panel| panel.metric))
 }
 
+/// Create the Gauge `spectra.query.*` rows the seed grants and revokes.
+///
+/// Runs once at init while `admin` is still a super user: Valence now enforces write privacy, so
+/// the demoted admin can no longer create the default owner group these rows need.
+pub(crate) async fn ensure_seed_query_permissions(admin: &valence::Valence) -> Result<(), String> {
+    // Create missing spectra.query.* Gauge rows for registered schemas.
+    spectra_app::ensure_table_query_permissions(admin).await?;
+    // Lab-only empty fixtures are not in Spectra inventory — create Gauge rows explicitly.
+    ensure_named_query_perm(admin, E2E_EMPTY_METRIC_NAME)
+        .await
+        .map_err(|code| format!("{E2E_EMPTY_METRIC_NAME}: {code}"))?;
+    ensure_named_query_perm(admin, E2E_EMPTY_EVENT_TABLE)
+        .await
+        .map_err(|code| format!("{E2E_EMPTY_EVENT_TABLE}: {code}"))?;
+    // Dashboard preset metrics come from platform kits this host does not link.
+    for metric in preset_metrics() {
+        ensure_named_query_perm(admin, metric)
+            .await
+            .map_err(|code| format!("{metric}: {code}"))?;
+    }
+    Ok(())
+}
+
 async fn seed_spectra_rows(
     kind: E2eAuthKind,
     skip_data: bool,
@@ -120,20 +143,6 @@ async fn seed_spectra_rows(
 ) -> Result<(), StatusCode> {
     if matches!(kind, E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms) {
         let admin = e2e_admin_valence();
-        // Create missing spectra.query.* Gauge rows for registered schemas.
-        spectra_app::ensure_table_query_permissions(&admin)
-            .await
-            .map_err(|err| {
-                log::error!("e2e seed: ensure_table_query_permissions failed: {err}");
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-        // Lab-only empty fixtures are not in Spectra inventory — create Gauge rows explicitly.
-        ensure_named_query_perm(&admin, E2E_EMPTY_METRIC_NAME).await?;
-        ensure_named_query_perm(&admin, E2E_EMPTY_EVENT_TABLE).await?;
-        // Dashboard preset metrics come from platform kits this host does not link.
-        for metric in preset_metrics() {
-            ensure_named_query_perm(&admin, metric).await?;
-        }
         if matches!(kind, E2eAuthKind::Admin) {
             grant_table_query_perm(&admin, "admin", E2E_EVENT_TABLE).await?;
             grant_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;

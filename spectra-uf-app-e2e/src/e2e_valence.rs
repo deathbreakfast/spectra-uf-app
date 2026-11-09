@@ -248,6 +248,9 @@ pub async fn init_e2e_valence() {
         user_id: "admin".to_string(),
     });
     grant_query_table(&admin_ctx, "admin").await;
+    crate::seed::ensure_seed_query_permissions(&admin_ctx)
+        .await
+        .expect("ensure Spectra query permissions");
     demote_admin_from_super_user(&system).await;
 
     let fixtures = bootstrap_spectra_fixtures();
