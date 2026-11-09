@@ -21,8 +21,8 @@ Repository map and contributor paths: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.m
 Hosts supply Spectra query backends and auth guard context. Enable `ssr` /
 hydrate to match your host. Crate-root rustdoc owns Concern → route → server fn
 tables; prefer `cargo doc -p spectra-backend --open` for the mapping contract.
-UI rustdoc is pin-dependent on Orbital / host graphs. Explore queries currently
-return empty stub payloads until a host injects a live Spectra backend.
+UI rustdoc is pin-dependent on Orbital / host graphs. Explore queries run
+against the host's Spectra router and return real rows, metrics and aggregates.
 
 ## Getting started
 
@@ -121,12 +121,12 @@ Full command block: [`docs/VERIFICATION.md`](docs/VERIFICATION.md). Contribute:
 crates; hosts inject live query backends.
 
 **Why is there a separate `spectra-backend` crate?** So schema catalog and
-explore-query stub helpers stay unit-testable without the Leptos/UI dependency
+explore-query helpers stay unit-testable without the Leptos/UI dependency
 graph. `spectra-app` `#[server]` fns are thin wrappers over those helpers.
 
 **What can operators do from the UI?** Browse registered schemas and explore
-events/metrics (table, time series, breakdowns). Explore payloads are empty stubs
-until the host wires a live Spectra backend.
+events/metrics (table, time series, breakdowns). Explore queries read from the
+Spectra router the host installs; without one they return a backend-not-installed error.
 
 **Where does Spectra core fit?** Schema registration and storage live in the
 Spectra core repos. This repo maps admin list/get/query APIs into UF ops pages.

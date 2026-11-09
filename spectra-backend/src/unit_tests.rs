@@ -141,3 +141,53 @@ fn spectra_ops_paths_encode_segments_happy_path() {
         "/spectra/metric/m%20x/explore"
     );
 }
+
+fn callsite_row(
+    id: &str,
+    callsite: Option<serde_json::Value>,
+    ts_secs: i64,
+) -> spectra_core::EventGridRow {
+    let mut fields = serde_json::json!({ "message": "m" });
+    if let Some(site) = callsite {
+        fields[spectra_core::CALLSITE_FIELD] = site;
+    }
+    spectra_core::EventGridRow {
+        id: id.into(),
+        ts: chrono::DateTime::from_timestamp(ts_secs, 0).expect("valid ts"),
+        fields,
+    }
+}
+
+#[test]
+fn fold_callsites_groups_by_file_and_line_happy_path() {
+    let site = |file: &str, line: u32| Some(serde_json::json!({ "file": file, "line": line }));
+    let rows = vec![
+        callsite_row("1", site("src/a.rs", 10), 100),
+        callsite_row("2", site("src/a.rs", 10), 300),
+        callsite_row("3", site("src/a.rs", 11), 200),
+    ];
+    let (sites, untracked) = super::fold_callsites("t", &rows);
+    assert_eq!(untracked, 0);
+    assert_eq!(sites.len(), 2);
+    assert_eq!(sites[0].count, 2);
+    assert_eq!(sites[0].last_seen.timestamp(), 300);
+    assert_eq!(sites[1].line, 11);
+}
+
+#[test]
+fn fold_callsites_counts_rows_without_usable_callsite_sad_path() {
+    let rows = vec![
+        callsite_row("1", None, 1),
+        callsite_row("2", Some(serde_json::json!("src/a.rs:1")), 2),
+        callsite_row("3", Some(serde_json::json!({ "file": "", "line": 1 })), 3),
+        callsite_row(
+            "4",
+            Some(serde_json::json!({ "file": "src/a.rs", "line": -1 })),
+            4,
+        ),
+        callsite_row("5", Some(serde_json::json!({ "file": "src/a.rs" })), 5),
+    ];
+    let (sites, untracked) = super::fold_callsites("t", &rows);
+    assert_eq!(sites, Vec::new());
+    assert_eq!(untracked, 5);
+}

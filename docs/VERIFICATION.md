@@ -129,12 +129,28 @@ Event log paging and the dashboard total (server counts, not page length):
 - `pw-spectra-event-log-server-paging-happy` / `pw-spectra-event-log-filtered-total-sad`
 - `pw-spectra-home-activity-24h-happy`
 
-Layer 1 still holds stub-shape regression tests (`empty_*` helpers) and live-query
+Curated seed dashboards (`/spectra/dashboards`, Photon throughput and Valence DB activity):
+
+- `pw-spectra-dashboards-index-happy` / `pw-spectra-dashboards-open-from-index-happy`
+- `pw-spectra-dashboards-photon-panels-happy` / `pw-spectra-dashboards-valence-panels-happy`
+- `pw-spectra-dashboards-unseeded-panel-empty-sad` / `pw-spectra-dashboards-unknown-id-sad`
+- `pw-spectra-dashboards-panel-explore-link-happy` / `pw-spectra-dashboards-nav-link-happy`
+- `pw-spectra-dashboards-permission-denied-sad`
+
+Callsite graph (`/spectra/graph`, `callsite_graph.spec.ts`):
+
+- `pw-spectra-callsite-graph-sites-happy` / `pw-spectra-callsite-graph-edge-list-happy`
+- `pw-spectra-callsite-graph-table-link-happy` / `pw-spectra-callsite-graph-window-happy`
+- `pw-spectra-callsite-graph-untracked-notice-happy` / `pw-spectra-callsite-graph-nav-happy`
+- `pw-spectra-callsite-graph-no-table-access-sad` / `pw-spectra-callsite-graph-anonymous-sad`
+
+Layer 1 still holds empty-shape fixture tests (`empty_*` helpers) and live-query
 helper contracts (`query_live_contract.rs`), including hardened
 `execute_event_aggregate_group_by_slices_happy_path` (Slices required).
 
 Covering integ tests (Layer 1):
 
+- `generated_logger_rows_become_emit_sites_happy_path` / `rows_without_callsite_are_counted_not_graphed_sad_path` (`callsite_graph_contract.rs`)
 - `schema_metadata_list_returns_valid_items_happy_path` / `schema_metadata_detail_unknown_name_is_none_sad`
 - `schema_metadata_detail_matches_list_entry_happy_path`
 - `execute_event_query_empty_table_happy_path` / `execute_metrics_query_empty_happy_path`
@@ -142,6 +158,7 @@ Covering integ tests (Layer 1):
 - `count_matching_events_excludes_rows_outside_range_sad_path` / `count_matching_events_rejects_bad_table_sad_path`
 - `execute_event_query_falls_back_to_rows_seen_when_count_fails_sad_path`
 - `dashboard_catalog_summary_counts_happy_path`
+- `preset_ids_are_unique_happy_path` / `preset_lookup_unknown_id_sad_path`
 - `empty_metrics_query_result_shape_happy_path` / `empty_event_query_result_unknown_table_happy_path`
 - `empty_event_aggregate_result_timeseries_stub_happy_path`
 - `validate_spectra_query_name_accepts_table_happy_path` / `validate_spectra_query_name_rejects_blank_sad`

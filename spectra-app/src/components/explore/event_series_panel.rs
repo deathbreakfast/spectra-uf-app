@@ -43,10 +43,7 @@ pub fn EventPiePanel(
     /// Aggregation group-by field from the toolbar (empty means user must choose).
     group_by_field: Option<String>,
 ) -> impl IntoView {
-    let group_by_missing = group_by_field
-        .as_ref()
-        .map(|s| s.trim().is_empty())
-        .unwrap_or(true);
+    let group_by_missing = group_by_field.as_ref().is_none_or(|s| s.trim().is_empty());
     if group_by_missing {
         return view! {
             <div data-testid="spectra-event-empty-state">
@@ -78,7 +75,7 @@ pub fn EventPiePanel(
                     <div style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;">
                         {match view {
                             EventExploreView::BarChart => {
-                                view! { <EventBarChart slices=slices.clone() /> }.into_any()
+                                view! { <EventBarChart slices=slices /> }.into_any()
                             }
                             _ => view! { <EventPieChart slices=slices /> }.into_any(),
                         }}

@@ -110,8 +110,8 @@ wasm-bindgen = "=0.2.126"
 web-sys = { version = "=0.3.103", features = ["CssStyleDeclaration", "Document", "DomRect", "Element", "EventTarget", "HtmlElement", "MediaQueryList", "Node", "Storage", "Window"] }
 uuid = { version = "1", features = ["v4"] }
 
-spectra-core = { package = "uf-spectra-core", git = "https://github.com/unified-field-dev/Spectra", branch = "main", default-features = false }
-spectra = { package = "uf-spectra", git = "https://github.com/unified-field-dev/Spectra", branch = "main", default-features = false, features = ["mem"] }
+spectra-core = { package = "uf-spectra-core", git = "https://github.com/unified-field-dev/spectra", branch = "main", default-features = false }
+spectra = { package = "uf-spectra", git = "https://github.com/unified-field-dev/spectra", branch = "main", default-features = false, features = ["mem"] }
 gauge = { git = "https://github.com/unified-field-dev/gauge", branch = "main", default-features = false }
 higgs = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
 higgs-host = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }

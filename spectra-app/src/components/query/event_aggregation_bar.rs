@@ -147,7 +147,7 @@ pub fn EventAggregationBar(
                                     <Select bind=measure_field>
                                         {fields.iter().map(|f| {
                                             let opt = f.clone();
-                                            view! { <option value=opt.clone()>{opt.clone()}</option> }
+                                            view! { <option value=opt>{opt.clone()}</option> }
                                         }).collect_view()}
                                     </Select>
                                 </div>
@@ -172,7 +172,7 @@ pub fn EventAggregationBar(
                                         <option value="">"(select field)"</option>
                                         {fields.iter().map(|f| {
                                             let opt = f.clone();
-                                            view! { <option value=opt.clone()>{opt.clone()}</option> }
+                                            view! { <option value=opt>{opt.clone()}</option> }
                                         }).collect_view()}
                                     </Select>
                                 </div>
@@ -191,7 +191,7 @@ pub fn EventAggregationBar(
                                             <option value="">"(select field)"</option>
                                             {row_fields_options.iter().map(|f| {
                                                 let opt = f.clone();
-                                                view! { <option value=opt.clone()>{opt.clone()}</option> }
+                                                view! { <option value=opt>{opt.clone()}</option> }
                                             }).collect_view()}
                                         </Select>
                                     </div>
@@ -203,7 +203,7 @@ pub fn EventAggregationBar(
                                             <option value="">"(none)"</option>
                                             {pivot_field_options.iter().map(|f| {
                                                 let opt = f.clone();
-                                                view! { <option value=opt.clone()>{opt.clone()}</option> }
+                                                view! { <option value=opt>{opt.clone()}</option> }
                                             }).collect_view()}
                                         </Select>
                                     </div>

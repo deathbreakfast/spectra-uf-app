@@ -34,11 +34,8 @@ pub fn display_field_value(fields: &Value, field: &str) -> String {
     if field == "ts" {
         return String::new();
     }
-    fields
-        .get(field)
-        .map(|v| match v {
-            Value::String(s) => s.clone(),
-            other => other.to_string(),
-        })
-        .unwrap_or_default()
+    fields.get(field).map_or_else(String::new, |v| match v {
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    })
 }

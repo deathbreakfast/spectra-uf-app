@@ -7,7 +7,7 @@ use gauge::service;
 use serde::Deserialize;
 use serde_json::json;
 use spectra::{try_log_event_at, try_record_gauge_at};
-use spectra_backend::spectra_query_permission_name;
+use spectra_backend::{dashboard_presets, spectra_query_permission_name};
 
 use crate::e2e_spectra::e2e_spectra;
 use crate::e2e_valence::{
@@ -103,6 +103,39 @@ async fn revoke_table_query_perm(
     Ok(())
 }
 
+/// Preset metrics left unseeded so dashboards show an empty panel beside charted ones.
+const SEED_SKIPPED_PRESET_METRICS: [&str; 2] = ["photon_backlog", "valence_db_wall_ms"];
+
+/// Every metric named by a curated dashboard panel.
+fn preset_metrics() -> impl Iterator<Item = &'static str> {
+    dashboard_presets()
+        .iter()
+        .flat_map(|preset| preset.panels.iter().map(|panel| panel.metric))
+}
+
+/// Create the Gauge `spectra.query.*` rows the seed grants and revokes.
+///
+/// Runs once at init while `admin` is still a super user: Valence now enforces write privacy, so
+/// the demoted admin can no longer create the default owner group these rows need.
+pub(crate) async fn ensure_seed_query_permissions(admin: &valence::Valence) -> Result<(), String> {
+    // Create missing spectra.query.* Gauge rows for registered schemas.
+    spectra_app::ensure_table_query_permissions(admin).await?;
+    // Lab-only empty fixtures are not in Spectra inventory — create Gauge rows explicitly.
+    ensure_named_query_perm(admin, E2E_EMPTY_METRIC_NAME)
+        .await
+        .map_err(|code| format!("{E2E_EMPTY_METRIC_NAME}: {code}"))?;
+    ensure_named_query_perm(admin, E2E_EMPTY_EVENT_TABLE)
+        .await
+        .map_err(|code| format!("{E2E_EMPTY_EVENT_TABLE}: {code}"))?;
+    // Dashboard preset metrics come from platform kits this host does not link.
+    for metric in preset_metrics() {
+        ensure_named_query_perm(admin, metric)
+            .await
+            .map_err(|code| format!("{metric}: {code}"))?;
+    }
+    Ok(())
+}
+
 async fn seed_spectra_rows(
     kind: E2eAuthKind,
     skip_data: bool,
@@ -110,26 +143,22 @@ async fn seed_spectra_rows(
 ) -> Result<(), StatusCode> {
     if matches!(kind, E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms) {
         let admin = e2e_admin_valence();
-        // Create missing spectra.query.* Gauge rows for registered schemas.
-        spectra_app::ensure_table_query_permissions(&admin)
-            .await
-            .map_err(|err| {
-                log::error!("e2e seed: ensure_table_query_permissions failed: {err}");
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-        // Lab-only empty fixtures are not in Spectra inventory — create Gauge rows explicitly.
-        ensure_named_query_perm(&admin, E2E_EMPTY_METRIC_NAME).await?;
-        ensure_named_query_perm(&admin, E2E_EMPTY_EVENT_TABLE).await?;
         if matches!(kind, E2eAuthKind::Admin) {
             grant_table_query_perm(&admin, "admin", E2E_EVENT_TABLE).await?;
             grant_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;
             grant_table_query_perm(&admin, "admin", E2E_EMPTY_METRIC_NAME).await?;
             grant_table_query_perm(&admin, "admin", E2E_EMPTY_EVENT_TABLE).await?;
+            for metric in preset_metrics() {
+                grant_table_query_perm(&admin, "admin", metric).await?;
+            }
         } else if matches!(kind, E2eAuthKind::AdminNoPerms) {
             revoke_table_query_perm(&admin, "admin", E2E_EVENT_TABLE).await?;
             revoke_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;
             revoke_table_query_perm(&admin, "admin", E2E_EMPTY_METRIC_NAME).await?;
             revoke_table_query_perm(&admin, "admin", E2E_EMPTY_EVENT_TABLE).await?;
+            for metric in preset_metrics() {
+                revoke_table_query_perm(&admin, "admin", metric).await?;
+            }
         }
     }
 
@@ -182,6 +211,24 @@ async fn seed_spectra_rows(
         }),
         stale,
     );
+    // Rows stamped like a generated `*Logger` call: two lines in one file, one in another, and
+    // one older than the graph's default 24h window.
+    for (file, line, ts) in [
+        ("e2e/checkout.rs", 12, recent - chrono::Duration::minutes(3)),
+        ("e2e/checkout.rs", 12, recent - chrono::Duration::minutes(4)),
+        ("e2e/checkout.rs", 48, recent - chrono::Duration::minutes(5)),
+        ("e2e/worker.rs", 7, recent - chrono::Duration::minutes(6)),
+        ("e2e/legacy.rs", 3, now - chrono::Duration::days(2)),
+    ] {
+        try_log_event_at(
+            E2E_EVENT_TABLE,
+            &json!({
+                "message": format!("Callsite row from {file}:{line}"),
+                "_callsite": { "file": file, "line": line },
+            }),
+            ts,
+        );
+    }
     let bulk_start = now - chrono::Duration::minutes(10);
     for i in 0..bulk_events.min(MAX_BULK_EVENTS) {
         try_log_event_at(
@@ -196,6 +243,14 @@ async fn seed_spectra_rows(
         );
     }
     try_record_gauge_at(E2E_METRIC_NAME, &[("host", "e2e")], 42.0, recent);
+    // Seed every dashboard metric except the Photon backlog and Valence wall time, so the
+    // specs can see both a charted panel and an empty one.
+    for metric in preset_metrics() {
+        if SEED_SKIPPED_PRESET_METRICS.contains(&metric) {
+            continue;
+        }
+        try_record_gauge_at(metric, &[("host", "e2e")], 7.0, recent);
+    }
 
     e2e_spectra().flush_persist().await.map_err(|err| {
         log::error!("e2e seed: spectra flush_persist failed: {err}");

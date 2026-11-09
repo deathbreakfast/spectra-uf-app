@@ -4,6 +4,7 @@
 //! [`ensure_help_steps_linked`] from the host or [`crate::SpectraRoutes`] so
 //! `inventory` submissions survive linking.
 
+mod callsite_graph;
 mod event_explore;
 mod home;
 mod metric_explore;

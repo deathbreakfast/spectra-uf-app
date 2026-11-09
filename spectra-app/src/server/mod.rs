@@ -35,11 +35,14 @@ pub use spectra_backend::{
     encode_ops_path_segment, execute_event_aggregate, execute_event_query, execute_metrics_query,
     schema_metadata_detail, schema_metadata_list, spectra_metric_explore_path,
     spectra_query_permission_name, spectra_schema_explore_path, spectra_schema_path,
-    validate_spectra_query_name, SpectraOpsError, MAX_SPECTRA_QUERY_NAME_CHARS,
+    validate_spectra_query_name, CallsiteGraph, EmitSite, SpectraOpsError,
+    MAX_SPECTRA_QUERY_NAME_CHARS,
 };
 
+mod callsite_graph;
 mod dashboard;
 mod error;
+pub use callsite_graph::{get_callsite_graph, MAX_CALLSITE_WINDOW_HOURS};
 pub use dashboard::{get_spectra_dashboard_summary, SpectraDashboardSummary};
 pub use error::{server_fn_is_permission_denied, to_server_fn_error};
 use spectra_core::{
