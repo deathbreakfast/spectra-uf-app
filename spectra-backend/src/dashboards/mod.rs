@@ -1,9 +1,9 @@
 //! Saved, editable dashboards.
 //!
-//! [`model`] holds the types every build sees. With the `ssr` feature, the Valence store
-//! lives in [`store`]: three tables (dashboards, their saved versions, and per-user
-//! favourites), with access through each dashboard's Gauge resource bundle
-//! ([`policies::SPECTRA_DASHBOARD`]). The code presets in `dashboard_presets` appear in the
+//! The types ([`Dashboard`], [`Panel`] and the rest) are in every build. With the `ssr`
+//! feature, the Valence store lives in `store`: three tables (dashboards, their saved
+//! versions, and per-user favourites), with access through each dashboard's Gauge resource
+//! bundle (`policies::SPECTRA_DASHBOARD`). The code presets in `dashboard_presets` appear in the
 //! store's list and get as read-only built-ins.
 
 mod model;
