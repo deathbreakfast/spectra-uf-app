@@ -21,6 +21,10 @@
 //! - **Ops path encoding** — Percent-encode path segments for `/spectra` hrefs via
 //!   [`encode_ops_path_segment`], [`spectra_schema_path`], [`spectra_schema_explore_path`],
 //!   and [`spectra_metric_explore_path`].
+//! - **Query links** — Write an explore query as a URL and read it back with
+//!   [`QueryLink::encode`] and [`QueryLink::decode`], then check its fields against a schema
+//!   with [`query_url::resolve`].
+//!   [Get started](#query-links)
 //!
 //! ## Validate query names
 //!
@@ -90,6 +94,40 @@
 //! On success catalog helpers return registered schema rows or `None` when a name is unknown;
 //! the `empty_*` helpers return empty vectors with stable column metadata.
 //!
+//! ## Query links
+//!
+//! A query link carries a whole explore query: the table or metric, the window, the view,
+//! and the measure, grouping, bucket and filters. The explorers keep their state in it, so
+//! the address bar is always the current query, and a dashboard panel can be built from a
+//! pasted one.
+//!
+//! **Prerequisites:** None; encoding and decoding are synchronous and do no IO. Checking a
+//! link's fields needs the schema from [`schema_metadata_detail`].
+//!
+//! ```rust,ignore
+//! use spectra_backend::{FilterOp, LinkFilter, QueryLink, QueryView};
+//!
+//! let mut link = QueryLink::event("checkout_event");
+//! link.view = Some(QueryView::Log);
+//! link.filters.push(LinkFilter { field: "status".into(), op: FilterOp::Eq, value: "failed".into() });
+//! let url = link.encode();
+//! assert_eq!(url, "/spectra/schema/checkout_event/explore?window=1h&view=log&f=status:eq:failed");
+//!
+//! let decoded = QueryLink::decode(&format!("https://ops.example.com{url}&utm_source=chat"))?;
+//! assert_eq!(decoded.link, link);
+//! assert_eq!(decoded.ignored_keys, vec!["utm_source"]);
+//!
+//! if let Some(schema) = schema_metadata_detail("checkout_event") {
+//!     let checked = decoded.resolve(&schema);
+//!     // Fields the table doesn't have are listed here; they stay in the query.
+//!     println!("{:?}", checked.unknown_fields);
+//! }
+//! ```
+//!
+//! A path that isn't a Spectra explore path, or a malformed value, returns a
+//! [`QueryLinkError`]. Unknown keys don't fail the decode; they're listed in
+//! `ignored_keys`.
+//!
 //! ## Examples
 //!
 //! Start with [Validate query names](#validate-query-names). This crate's unit and integ suites
@@ -103,6 +141,7 @@ pub mod dashboards;
 #[cfg(feature = "ssr")]
 pub mod generated;
 mod query_live;
+pub mod query_url;
 
 pub use callsite_graph::{execute_callsite_graph, fold_callsites, CallsiteGraph, EmitSite};
 
@@ -120,6 +159,10 @@ pub use ops_error::{
 };
 pub use query_live::{
     count_matching_events, execute_event_aggregate, execute_event_query, execute_metrics_query,
+};
+pub use query_url::{
+    Decoded, FilterOp, LinkFilter, QueryBucket, QueryLink, QueryLinkError, QueryMeasure, QuerySort,
+    QuerySource, QueryView, QueryWindow, WindowPreset,
 };
 
 use spectra_core::{

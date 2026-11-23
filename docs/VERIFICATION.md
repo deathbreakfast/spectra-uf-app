@@ -144,6 +144,15 @@ Callsite graph (`/spectra/graph`, `callsite_graph.spec.ts`):
 - `pw-spectra-callsite-graph-untracked-notice-happy` / `pw-spectra-callsite-graph-nav-happy`
 - `pw-spectra-callsite-graph-no-table-access-sad` / `pw-spectra-callsite-graph-anonymous-sad`
 
+Query links (`query_link.spec.ts`; the explorers keep their query in the URL):
+
+- `pw-spectra-query-link-opens-filtered-log-happy` / `pw-spectra-query-link-view-change-updates-address-happy`
+- `pw-spectra-query-link-copy-icon-tooltip-happy` / `pw-spectra-query-link-metric-window-happy`
+- `pw-spectra-query-link-unknown-field-notice-sad` / `pw-spectra-query-link-bad-value-notice-sad`
+
+The codec's round-trip, unknown-field and error cases are unit tests in
+`spectra-backend/src/query_url.rs`.
+
 Layer 1 still holds empty-shape fixture tests (`empty_*` helpers) and live-query
 helper contracts (`query_live_contract.rs`), including hardened
 `execute_event_aggregate_group_by_slices_happy_path` (Slices required).

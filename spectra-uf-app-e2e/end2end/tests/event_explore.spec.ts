@@ -277,6 +277,8 @@ test.describe("pw-spectra-event-explore", () => {
     const bucketInput = page.getByTestId("spectra-aggregation-bucket").locator("input");
     await bucketInput.fill("150");
     await page.getByTestId("spectra-event-see").getByRole("button").click();
+    // Sizes without a named token go in the link as seconds.
+    await expect(page).toHaveURL(/[?&]bucket=150s(&|$)/);
     await expectEventChartHasData(page, "time_series", { minTotal: 3 });
     const chart = page.getByTestId("spectra-event-time-series-chart");
     await expect

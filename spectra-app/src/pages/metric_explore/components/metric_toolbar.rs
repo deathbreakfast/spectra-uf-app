@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use leptos::prelude::*;
 use orbital::components::{Caption1, Title3};
-use orbital::primitives::{Button, ButtonAppearance, Flex};
+use orbital::primitives::{Button, ButtonAppearance, Flex, FlexAlign, FlexGap};
 
-use crate::components::query::{QueryToolbarMaterial, TimeRangePicker};
+use crate::components::query::{CopyQueryLink, QueryToolbarMaterial, TimeRangePicker};
 
 #[component]
 pub fn MetricToolbar(
@@ -43,7 +43,7 @@ pub fn MetricToolbar(
     }
 }
 
-/// Title row for metric explore (Refresh stays on the toolbar).
+/// Title row for metric explore, with the Copy link icon (Refresh stays on the toolbar).
 #[component]
 pub fn MetricExploreTitle(
     /// Metric name for the heading.
@@ -51,6 +51,9 @@ pub fn MetricExploreTitle(
     metric_name: Signal<String>,
 ) -> impl IntoView {
     view! {
-        <Title3>{move || metric_name.get()}</Title3>
+        <Flex align=FlexAlign::Center gap=FlexGap::Small>
+            <Title3>{move || metric_name.get()}</Title3>
+            <CopyQueryLink />
+        </Flex>
     }
 }

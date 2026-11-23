@@ -28,7 +28,7 @@ icondata.workspace = true
 icondata_core.workspace = true
 # The dashboard edit page's leave-with-unsaved-changes guard.
 wasm-bindgen.workspace = true
-web-sys = { workspace = true, features = ["BeforeUnloadEvent", "MouseEvent"] }
+web-sys = { workspace = true, features = ["BeforeUnloadEvent", "Clipboard", "Location", "MouseEvent", "Navigator"] }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
