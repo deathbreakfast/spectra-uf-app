@@ -14,6 +14,10 @@
 //!   [Get started](#catalog-and-stubs)
 //! - **Gauge permission names** — Format per-table `spectra.query.{table}` strings via
 //!   [`spectra_query_permission_name`].
+//! - **Saved dashboards** — [`dashboards`] types for dashboards, sections and panels (always
+//!   built), plus the Valence store in `dashboards::store` behind the `ssr` feature: versions,
+//!   favourites, and sharing through each dashboard's Gauge permissions. The code presets show
+//!   up as read-only built-ins via [`builtin_dashboards`].
 //! - **Ops path encoding** — Percent-encode path segments for `/spectra` hrefs via
 //!   [`encode_ops_path_segment`], [`spectra_schema_path`], [`spectra_schema_explore_path`],
 //!   and [`spectra_metric_explore_path`].
@@ -95,6 +99,9 @@
 mod callsite_graph;
 mod dashboard;
 mod dashboard_presets;
+pub mod dashboards;
+#[cfg(feature = "ssr")]
+pub mod generated;
 mod query_live;
 
 pub use callsite_graph::{execute_callsite_graph, fold_callsites, CallsiteGraph, EmitSite};
@@ -103,7 +110,8 @@ pub use dashboard::{
     dashboard_catalog_summary, DashboardCatalogSummary, DEFAULT_RECENT_SCHEMA_LIMIT,
 };
 pub use dashboard_presets::{
-    dashboard_preset, dashboard_presets, spectra_dashboard_path, DashboardPanel, DashboardPreset,
+    builtin_dashboard, builtin_dashboards, dashboard_preset, dashboard_presets,
+    spectra_dashboard_path, DashboardPanel, DashboardPreset,
 };
 mod ops_error;
 pub use ops_error::{

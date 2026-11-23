@@ -41,9 +41,15 @@ pub use spectra_backend::{
 
 mod callsite_graph;
 mod dashboard;
+mod dashboards;
 mod error;
 pub use callsite_graph::{get_callsite_graph, MAX_CALLSITE_WINDOW_HOURS};
 pub use dashboard::{get_spectra_dashboard_summary, SpectraDashboardSummary};
+pub use dashboards::{
+    create_dashboard, dashboard_access, dashboard_error, delete_dashboard, duplicate_dashboard,
+    get_dashboard, list_dashboards, list_versions, restore_version, save_dashboard, set_favourite,
+    share_dashboard, to_dashboard_server_error,
+};
 pub use error::{server_fn_is_permission_denied, to_server_fn_error};
 use spectra_core::{
     EventAggregateRequest, EventAggregateResult, EventQuery, EventQueryResult, MetricsQuery,

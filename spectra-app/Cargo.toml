@@ -81,8 +81,17 @@ ssr = [
     "dep:gauge",
     "gauge/ssr",
     "dep:valence",
+    "spectra-backend/ssr",
     "dep:uf-product",
     "uf-product/ssr",
     "uf-help/ssr",
     "dep:inventory",
 ]
+
+[dev-dependencies]
+lepton-identity = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+
+[[test]]
+name = "dashboard_store"
+required-features = ["ssr"]

@@ -116,6 +116,8 @@ gauge = { git = "https://github.com/unified-field-dev/gauge", branch = "main", d
 higgs = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
 higgs-host = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
 higgs-identity = { git = "https://github.com/unified-field-dev/higgs", branch = "main" }
+lepton-identity = { git = "https://github.com/unified-field-dev/lepton", branch = "main" }
+valence-codegen = { package = "uf-valence-codegen", git = "https://github.com/unified-field-dev/valence", branch = "main" }
 valence = { package = "uf-valence", git = "https://github.com/unified-field-dev/valence", branch = "main", default-features = false, features = ["mem", "sqlite"] }
 
 orbital = { package = "orbital-ui", git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }

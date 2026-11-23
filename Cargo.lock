@@ -4644,6 +4644,7 @@ dependencies = [
  "icondata",
  "icondata_core",
  "inventory",
+ "lepton-identity",
  "lepton-shell",
  "leptos",
  "leptos_axum",
@@ -4661,6 +4662,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spectra-backend",
+ "tokio",
  "turf",
  "uf-help",
  "uf-help-macros",
@@ -4675,14 +4677,20 @@ dependencies = [
 name = "spectra-backend"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
+ "gauge",
+ "lepton-identity",
  "log",
  "serde",
  "serde_json",
  "tokio",
  "uf-spectra",
  "uf-spectra-core",
+ "uf-valence",
+ "uf-valence-codegen",
+ "uuid",
 ]
 
 [[package]]
