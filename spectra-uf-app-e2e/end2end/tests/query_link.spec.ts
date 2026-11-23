@@ -23,7 +23,12 @@ test.describe("pw-spectra-query-link", () => {
     const body = page.getByTestId("spectra-event-data-grid").locator("tbody");
     await expect(body).toContainText(WARN_ROW, { timeout: 60_000 });
     await expect(body).not.toContainText(seeded.fixtures.seed_message);
-    await expect(body.locator("tr")).toHaveCount(1);
+    await expect(body).not.toContainText("Second info row");
+    // Earlier tests in a lane seed the same rows again, so count matches, not rows.
+    const rows = body.locator("tr");
+    await expect
+      .poll(async () => (await rows.count()) - (await rows.filter({ hasText: WARN_ROW }).count()))
+      .toBe(0);
     await expect(page.getByTestId("spectra-query-link-notice")).toHaveCount(0);
   });
 
