@@ -6,7 +6,7 @@ use chrono::Utc;
 use gauge::service;
 use serde::Deserialize;
 use serde_json::json;
-use spectra::{try_log_event_at, try_record_gauge_at};
+use spectra::{try_log_event_at, try_record_gauge_at, CALLSITE_FIELD};
 use spectra_backend::dashboards::{
     store, ChartKind, DashboardError, Layout, Panel, PanelSource, Section, TableOpts, Variable,
 };
@@ -143,6 +143,20 @@ pub(crate) async fn ensure_seed_query_permissions(admin: &valence::Valence) -> R
     Ok(())
 }
 
+/// One metric point stamped like a generated `*Recorder` call, for the callsite graph's metric
+/// site. Same value as the plain seed point and an older timestamp, so the explorer's Max and
+/// Last stay at 42.
+fn seed_metric_callsite(recent: chrono::DateTime<Utc>) {
+    let callsite =
+        json!({ "file": "e2e/metrics.rs", "line": 5, "module": "e2e::metrics" }).to_string();
+    try_record_gauge_at(
+        E2E_METRIC_NAME,
+        &[("host", "e2e"), (CALLSITE_FIELD, callsite.as_str())],
+        42.0,
+        recent - chrono::Duration::minutes(1),
+    );
+}
+
 async fn seed_spectra_rows(
     kind: E2eAuthKind,
     skip_data: bool,
@@ -262,6 +276,7 @@ async fn seed_spectra_rows(
         );
     }
     try_record_gauge_at(E2E_METRIC_NAME, &[("host", "e2e")], 42.0, recent);
+    seed_metric_callsite(recent);
     // Seed every dashboard metric except the Photon backlog and Valence wall time, so the
     // specs can see both a charted panel and an empty one.
     for metric in preset_metrics() {

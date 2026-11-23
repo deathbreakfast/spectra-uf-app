@@ -141,8 +141,10 @@ Callsite graph (`/spectra/graph`, `callsite_graph.spec.ts`):
 
 - `pw-spectra-callsite-graph-sites-happy` / `pw-spectra-callsite-graph-edge-list-happy`
 - `pw-spectra-callsite-graph-table-link-happy` / `pw-spectra-callsite-graph-window-happy`
+- `pw-spectra-callsite-graph-show-metrics-happy`
 - `pw-spectra-callsite-graph-untracked-notice-happy` / `pw-spectra-callsite-graph-nav-happy`
-- `pw-spectra-callsite-graph-no-table-access-sad` / `pw-spectra-callsite-graph-anonymous-sad`
+- `pw-spectra-callsite-graph-no-grants-sad` / `pw-spectra-callsite-graph-anonymous-sad`
+- `help-spotlight-callsite-graph-green` (`help_spotlight.spec.ts`)
 
 Query links (`query_link.spec.ts`; the explorers keep their query in the URL):
 
@@ -160,6 +162,8 @@ helper contracts (`query_live_contract.rs`), including hardened
 Covering integ tests (Layer 1):
 
 - `generated_logger_rows_become_emit_sites_happy_path` / `rows_without_callsite_are_counted_not_graphed_sad_path` (`callsite_graph_contract.rs`)
+- `metric_points_become_emit_sites_happy_path` / `hidden_table_is_reported_and_not_scanned_happy_path`
+- `no_router_reports_no_backend_sad_path` / `nothing_readable_reports_no_grants_sad_path` / `empty_window_reports_nothing_logged_sad_path`
 - `schema_metadata_list_returns_valid_items_happy_path` / `schema_metadata_detail_unknown_name_is_none_sad`
 - `schema_metadata_detail_matches_list_entry_happy_path`
 - `execute_event_query_empty_table_happy_path` / `execute_metrics_query_empty_happy_path`
