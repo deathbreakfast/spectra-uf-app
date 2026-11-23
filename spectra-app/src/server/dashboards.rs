@@ -18,10 +18,24 @@ use spectra_backend::dashboards::{
 #[cfg(feature = "ssr")]
 use super::require_session;
 
+/// What the client sees in place of a [`DashboardError::Store`] message.
+pub const STORE_ERROR_CLIENT_MESSAGE: &str = "something went wrong on the server. Try again.";
+
 /// Turn a [`DashboardError`] into a `ServerFnError` that [`dashboard_error`] can decode.
+///
+/// A [`DashboardError::Store`] carries raw Valence or Gauge text (table names, engine
+/// messages, permission ids). That detail is logged on the server, and the client gets
+/// [`STORE_ERROR_CLIENT_MESSAGE`] instead.
 #[must_use]
 pub fn to_dashboard_server_error(err: &DashboardError) -> ServerFnError {
-    ServerFnError::new(format!("{err} ({})", err.encode()))
+    let sent = match err {
+        DashboardError::Store { message } => {
+            log::error!("Spectra dashboard store error: {message}");
+            DashboardError::store(STORE_ERROR_CLIENT_MESSAGE)
+        }
+        other => other.clone(),
+    };
+    ServerFnError::new(format!("{sent} ({})", sent.encode()))
 }
 
 /// The [`DashboardError`] inside a dashboard server function's error, if there is one.
@@ -189,7 +203,7 @@ pub async fn share_dashboard(
     viewers: Vec<Principal>,
 ) -> Result<spectra_backend::dashboards::DashboardAccess, ServerFnError> {
     let v = session_valence().await?;
-    spectra_backend::dashboards::store::share(&v, &id, &editors, &viewers)
+    spectra_backend::dashboards::sharing::share(&v, &id, &editors, &viewers)
         .await
         .map_err(to_sfe)
 }
@@ -201,7 +215,7 @@ pub async fn dashboard_access(
     id: String,
 ) -> Result<spectra_backend::dashboards::DashboardAccess, ServerFnError> {
     let v = session_valence().await?;
-    spectra_backend::dashboards::store::access(&v, &id)
+    spectra_backend::dashboards::sharing::access(&v, &id)
         .await
         .map_err(to_sfe)
 }
@@ -218,6 +232,18 @@ mod tests {
             Some(DashboardError::Conflict { current: 3 })
         );
         assert!(err.to_string().contains("version 3"));
+    }
+
+    #[test]
+    fn store_detail_stays_on_the_server_sad_path() {
+        let err = to_dashboard_server_error(&DashboardError::store(
+            "permission rp_perm_spectra_dashboard_x_view: backend timeout",
+        ));
+        assert!(!err.to_string().contains("rp_perm"));
+        assert_eq!(
+            dashboard_error(&err),
+            Some(DashboardError::store(STORE_ERROR_CLIENT_MESSAGE))
+        );
     }
 
     #[test]

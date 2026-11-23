@@ -19,6 +19,8 @@ pub use model::{
 #[cfg(feature = "ssr")]
 pub mod policies;
 #[cfg(feature = "ssr")]
+pub mod sharing;
+#[cfg(feature = "ssr")]
 pub mod store;
 
 /// Valence storage for the dashboard tables.

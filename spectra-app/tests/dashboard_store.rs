@@ -11,7 +11,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use gauge::resource_permissions::delete_resource_permission_bundle;
 use spectra_backend::dashboards::policies::SPECTRA_DASHBOARD;
-use spectra_backend::dashboards::store;
+use spectra_backend::dashboards::{sharing, store};
 use spectra_backend::dashboards::{
     ChartKind, DashboardError, DashboardScope, Layout, Panel, PanelSource, Principal, Section,
     TableOpts,
@@ -173,7 +173,7 @@ async fn viewer_reads_but_cannot_save_and_outsider_cannot_read() {
     let d = store::create(&alice, "Shared view", "", None)
         .await
         .expect("create");
-    let access = store::share(&alice, &d.id, &[], &[Principal::User(BOB.into())])
+    let access = sharing::share(&alice, &d.id, &[], &[Principal::User(BOB.into())])
         .await
         .expect("share");
     assert_eq!(access.viewers, vec![Principal::User(BOB.into())]);
@@ -192,7 +192,7 @@ async fn viewer_reads_but_cannot_save_and_outsider_cannot_read() {
         .expect("mine");
     assert_eq!(bob_mine, Vec::new());
 
-    let bob_access = store::access(&bob, &d.id).await.expect("access");
+    let bob_access = sharing::access(&bob, &d.id).await.expect("access");
     assert!(!bob_access.can_edit && !bob_access.can_delete && !bob_access.can_share);
     assert!(
         bob_access.viewers.is_empty(),
@@ -215,7 +215,7 @@ async fn viewer_reads_but_cannot_save_and_outsider_cannot_read() {
         Err(DashboardError::NotFound)
     );
     assert_eq!(
-        store::share(&bob, &d.id, &[Principal::User(BOB.into())], &[]).await,
+        sharing::share(&bob, &d.id, &[Principal::User(BOB.into())], &[]).await,
         Err(DashboardError::Forbidden)
     );
 }
@@ -230,7 +230,7 @@ async fn editor_saves_but_only_the_owner_deletes() {
     let d = store::create(&alice, "Team board", "", None)
         .await
         .expect("create");
-    store::share(&alice, &d.id, &[Principal::User(BOB.into())], &[])
+    sharing::share(&alice, &d.id, &[Principal::User(BOB.into())], &[])
         .await
         .expect("share");
 
@@ -333,7 +333,7 @@ async fn builtins_are_listed_and_read_only() {
         Err(DashboardError::ReadOnly)
     );
     assert_eq!(
-        store::share(&alice, BUILTIN, &[], &[]).await,
+        sharing::share(&alice, BUILTIN, &[], &[]).await,
         Err(DashboardError::ReadOnly)
     );
     assert_eq!(
@@ -434,7 +434,7 @@ async fn user_deletion_clears_their_favourites_and_owned_dashboards() {
     let alices = store::create(&alice, "Alice's board", "", None)
         .await
         .expect("alice's");
-    store::share(&alice, &alices.id, &[Principal::User(CAROL.into())], &[])
+    sharing::share(&alice, &alices.id, &[Principal::User(CAROL.into())], &[])
         .await
         .expect("share with carol");
     let mut edit = store::get(&carol, &alices.id, None)

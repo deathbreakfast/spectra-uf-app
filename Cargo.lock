@@ -4654,6 +4654,7 @@ dependencies = [
  "leptos_meta",
  "leptos_router",
  "leptos_server",
+ "log",
  "orbital-charts",
  "orbital-datatable",
  "orbital-macros",
