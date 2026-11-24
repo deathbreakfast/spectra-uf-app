@@ -296,8 +296,9 @@ pub(super) fn EditGrid(
     let sid = StoredValue::new(section_id);
     let ids = Memo::new(move |_| {
         draft.with(|d| {
-            find_section(d, &sid.get_value())
-                .map_or_default(|s| s.panels.iter().map(|p| p.id.clone()).collect::<Vec<_>>())
+            find_section(d, &sid.get_value()).map_or_else(Vec::new, |s| {
+                s.panels.iter().map(|p| p.id.clone()).collect::<Vec<_>>()
+            })
         })
     });
 
@@ -440,7 +441,7 @@ fn EditCell(
     });
     let title = Signal::derive(move || {
         panel.with(|p| {
-            p.as_ref().map_or_default(|p| {
+            p.as_ref().map_or_else(String::new, |p| {
                 if p.title.is_empty() {
                     "Untitled panel".to_string()
                 } else {
@@ -449,7 +450,7 @@ fn EditCell(
             })
         })
     });
-    let caption = move || panel.with(|p| p.as_ref().map_or_default(panel_caption));
+    let caption = move || panel.with(|p| p.as_ref().map_or_else(String::new, panel_caption));
     let text = panel.with_untracked(|p| p.as_ref().is_some_and(is_text));
     let style = move || {
         let l = layout.get();
@@ -565,7 +566,9 @@ pub(super) fn EditSectionHeader(
 ) -> impl IntoView {
     let sid = StoredValue::new(section_id.clone());
     let title = Memo::new(move |_| {
-        draft.with(|d| find_section(d, &sid.get_value()).map_or_default(|s| s.title.clone()))
+        draft.with(|d| {
+            find_section(d, &sid.get_value()).map_or_else(String::new, |s| s.title.clone())
+        })
     });
     let shown_title = move || {
         let t = title.get();
@@ -714,7 +717,7 @@ pub(super) fn PhoneSectionList(
     let sid = StoredValue::new(section_id.clone());
     let panels = Memo::new(move |_| {
         draft.with(|d| {
-            find_section(d, &sid.get_value()).map_or_default(|s| reading_order(&s.panels))
+            find_section(d, &sid.get_value()).map_or_else(Vec::new, |s| reading_order(&s.panels))
         })
     });
     let swap = move |id: String, up: bool| {
