@@ -260,6 +260,23 @@ test.describe("pw-spectra-dashboards", () => {
     expect(wideSecond!.x).toBeGreaterThan(wideFirst!.x + wideFirst!.width - 1);
   });
 
+  test("pw-spectra-dashboards-edit-button-opens-edit-happy", async ({ page }) => {
+    const seed = await seedAuth(page, "admin");
+    const checkout = seed.fixtures.checkout_dashboard_id;
+    await openDashboard(page, checkout);
+    await page.getByTestId("spectra-dashboard-edit").getByRole("button").click();
+    await expect(page).toHaveURL(new RegExp(`/spectra/dashboards/${checkout}/edit$`), {
+      timeout: 60_000,
+    });
+    await expect(page.getByTestId("spectra-edit-bar")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("spectra-dashboard-share")).toHaveCount(0);
+    // Nothing changed, so Done goes straight back without asking.
+    await page.getByTestId("spectra-edit-done").getByRole("button").click();
+    await expect(page).toHaveURL(new RegExp(`/spectra/dashboards/${checkout}$`), {
+      timeout: 60_000,
+    });
+  });
+
   test("pw-spectra-dashboards-nav-link-happy", async ({ page }) => {
     await seedAuth(page, "admin");
     await page.goto("/spectra", { waitUntil: "domcontentloaded" });

@@ -4,8 +4,9 @@ use leptos::prelude::*;
 use leptos_router::{lazy_route, LazyRoute};
 
 use crate::{
-    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage,
-    MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage, SpectraLayout,
+    CallsiteGraphPage, DashboardDetailPage, DashboardEditPage, DashboardIndexPage,
+    EventExplorePage, MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
+    SpectraLayout,
 };
 
 /// Prefetch the spectra family WASM chunk (leaf pages share split modules).
@@ -121,6 +122,21 @@ impl LazyRoute for DashboardDetailRoute {
 
     fn view(_this: Self) -> AnyView {
         view! { <DashboardDetailPage /> }.into_any()
+    }
+}
+
+/// Lazy `/spectra/dashboards/:id/edit`.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DashboardEditRoute;
+
+#[lazy_route]
+impl LazyRoute for DashboardEditRoute {
+    fn data() -> Self {
+        Self
+    }
+
+    fn view(_this: Self) -> AnyView {
+        view! { <DashboardEditPage /> }.into_any()
     }
 }
 
