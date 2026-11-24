@@ -191,6 +191,30 @@ async fn grant_query_table(admin_ctx: &Valence, user_id: &str) {
         .expect("grant QueryTable");
 }
 
+/// Name of the Gauge group the sharing spec shares dashboards with.
+pub const E2E_SHARE_GROUP_NAME: &str = "Checkout team";
+
+/// Create "Checkout team" with teammate as its only member. Admin owns it but isn't a
+/// member, so a dashboard shared with the group reaches teammate and nobody else.
+async fn seed_share_group(admin_ctx: &Valence) {
+    let group = service::create_group_owner_only(
+        gauge::types::PermissionGroupCreateInput {
+            name: E2E_SHARE_GROUP_NAME.into(),
+            description: "Playwright sharing fixture".into(),
+        },
+        admin_ctx,
+    )
+    .await
+    .expect("create share group");
+    let id = group
+        .id()
+        .and_then(|rid| valence::extract_id_from_record(rid).ok())
+        .expect("share group id");
+    service::add_group_member_user(&id, "teammate", admin_ctx)
+        .await
+        .expect("add teammate to share group");
+}
+
 fn bootstrap_spectra_fixtures() -> FixtureIds {
     FixtureIds {
         event_table: E2E_EVENT_TABLE.into(),
@@ -238,6 +262,7 @@ pub async fn init_e2e_valence() {
     seed_user("admin", true, &system).await;
     seed_user("outsider", true, &system).await;
     seed_user("unverified", false, &system).await;
+    seed_user("teammate", true, &system).await;
     seed_super_user_with_member(&system, "admin").await;
 
     sync_permission_manifests(&system, &[spectra_query_manifest()])
@@ -248,6 +273,8 @@ pub async fn init_e2e_valence() {
         user_id: "admin".to_string(),
     });
     grant_query_table(&admin_ctx, "admin").await;
+    grant_query_table(&admin_ctx, "teammate").await;
+    seed_share_group(&admin_ctx).await;
     crate::seed::ensure_seed_query_permissions(&admin_ctx)
         .await
         .expect("ensure Spectra query permissions");

@@ -46,8 +46,17 @@ pub(super) fn DashboardToolbar(
     state: Memo<ViewState>,
     /// Called with the next state; the page writes it to the URL.
     on_change: Callback<ViewState>,
-    /// Duplicate the dashboard and open the copy.
+    /// Open the Duplicate dialog.
     on_duplicate: Callback<()>,
+    /// Open the Share dialog.
+    on_share: Callback<()>,
+    /// Open the version history.
+    on_history: Callback<()>,
+    /// Open the Delete dialog.
+    on_delete: Callback<()>,
+    /// True while an older version is shown, which can't be edited, shared or deleted.
+    #[prop(optional)]
+    old_version: bool,
 ) -> impl IntoView {
     let saved_filters = dashboard.filters.clone();
     let update = move |f: &dyn Fn(&mut ViewState)| {
@@ -101,8 +110,10 @@ pub(super) fn DashboardToolbar(
     });
 
     let variables = dashboard.variables;
-    let can_edit = access.can_edit;
-    let can_share = access.can_share;
+    let builtin = dashboard.read_only;
+    let can_edit = access.can_edit && !old_version;
+    let can_share = !builtin && !old_version;
+    let can_delete = access.can_delete && !old_version;
 
     view! {
         <div data-testid="spectra-dashboard-toolbar">
@@ -195,11 +206,14 @@ pub(super) fn DashboardToolbar(
                                 </Tooltip>
                             })}
                             {can_share.then(|| view! {
-                                <Tooltip content="Sharing is coming soon".to_string()>
-                                    <span data-testid="spectra-dashboard-share">
-                                        <Button disabled_focusable=true>"Share"</Button>
-                                    </span>
-                                </Tooltip>
+                                <span data-testid="spectra-dashboard-share">
+                                    <Button
+                                        icon=icondata::AiShareAltOutlined
+                                        on_click=Callback::new(move |_| on_share.run(()))
+                                    >
+                                        "Share"
+                                    </Button>
+                                </span>
                             })}
                             {(!can_edit).then(|| view! {
                                 <span data-testid="spectra-dashboard-duplicate">
@@ -210,10 +224,11 @@ pub(super) fn DashboardToolbar(
                             })}
                             <Menu
                                 data_testid="spectra-dashboard-more"
-                                on_select=move |action: &str| {
-                                    if action == "duplicate" {
-                                        on_duplicate.run(());
-                                    }
+                                on_select=move |action: &str| match action {
+                                    "duplicate" => on_duplicate.run(()),
+                                    "history" => on_history.run(()),
+                                    "delete" => on_delete.run(()),
+                                    _ => {}
                                 }
                             >
                                 <MenuTrigger slot>
@@ -224,8 +239,12 @@ pub(super) fn DashboardToolbar(
                                     />
                                 </MenuTrigger>
                                 <MenuItem value="duplicate">"Duplicate"</MenuItem>
-                                <MenuItem value="history" disabled=true>"Version history"</MenuItem>
-                                <MenuItem value="delete" disabled=true>"Delete"</MenuItem>
+                                {(!builtin).then(|| view! {
+                                    <MenuItem value="history">"Version history"</MenuItem>
+                                })}
+                                {can_delete.then(|| view! {
+                                    <MenuItem value="delete">"Delete"</MenuItem>
+                                })}
                             </Menu>
                         </Flex>
                     </Flex>

@@ -14,6 +14,8 @@ pub const E2E_ADMIN_USER: &str = "user:admin";
 pub const E2E_OUTSIDER_USER: &str = "user:outsider";
 #[cfg(feature = "ssr")]
 pub const E2E_UNVERIFIED_USER: &str = "user:unverified";
+#[cfg(feature = "ssr")]
+pub const E2E_TEAMMATE_USER: &str = "user:teammate";
 
 /// Session kinds for Playwright seed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +32,8 @@ pub enum E2eAuthKind {
     Outsider,
     /// Authenticated but email unverified.
     Unverified,
+    /// A second QueryTable holder in the "Checkout team" group, for sharing.
+    Teammate,
 }
 
 impl E2eAuthKind {
@@ -41,6 +45,7 @@ impl E2eAuthKind {
             Self::AdminPartial => "admin_partial",
             Self::Outsider => "outsider",
             Self::Unverified => "unverified",
+            Self::Teammate => "teammate",
         }
     }
 
@@ -51,6 +56,7 @@ impl E2eAuthKind {
             "admin_partial" => Self::AdminPartial,
             "outsider" => Self::Outsider,
             "unverified" | "authenticated_unverified" => Self::Unverified,
+            "teammate" => Self::Teammate,
             _ => Self::Anonymous,
         }
     }
@@ -62,6 +68,7 @@ impl E2eAuthKind {
             Self::Admin | Self::AdminNoPerms | Self::AdminPartial => Some(E2E_ADMIN_USER),
             Self::Outsider => Some(E2E_OUTSIDER_USER),
             Self::Unverified => Some(E2E_UNVERIFIED_USER),
+            Self::Teammate => Some(E2E_TEAMMATE_USER),
         }
     }
 
@@ -82,6 +89,14 @@ impl E2eAuthKind {
                 user_id: "outsider".into(),
                 email: Some("outsider@example.com".into()),
                 display_name: Some("Outsider".into()),
+                avatar_url: None,
+                roles: vec!["user".into()],
+                email_verified: true,
+            }),
+            Self::Teammate => AuthSession::Authenticated(AuthenticatedUser {
+                user_id: "teammate".into(),
+                email: Some("teammate@example.com".into()),
+                display_name: Some("Teammate".into()),
                 avatar_url: None,
                 roles: vec!["user".into()],
                 email_verified: true,

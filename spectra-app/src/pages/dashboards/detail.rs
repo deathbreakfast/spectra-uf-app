@@ -1,4 +1,8 @@
 //! `/spectra/dashboards/:id`: one dashboard with its toolbar, sections and panels.
+//!
+//! `?version=N` shows saved version N read-only, under a bar with Back to current and
+//! Restore this version. The Share, Duplicate, history and Delete overlays open from the
+//! toolbar and never change the URL.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -16,17 +20,43 @@ use orbital::primitives::{
     SkeletonItem,
 };
 use spectra_backend::dashboards::view::ViewState;
-use spectra_backend::dashboards::{Dashboard, DashboardError, DashboardFilter, Variable};
+use spectra_backend::dashboards::{Dashboard, DashboardError, DashboardFilter, Variable, Version};
 use spectra_backend::spectra_dashboard_path;
 
+use super::delete::DeleteDialog;
+use super::duplicate::DuplicateDialog;
+use super::history::{HistoryDrawer, RestoreDialog};
 use super::section::DashboardSection;
+use super::share::ShareDialog;
 use super::toolbar::DashboardToolbar;
-use super::{action_error_text, copy_title, saved_date};
+use super::{action_error_text, copy_title, saved_date, version_bar_text, VERSION_QUERY_KEY};
 use crate::layout::DashboardCrumb;
 use crate::server::{
-    dashboard_error, duplicate_dashboard, get_dashboard_view, set_favourite, DashboardView,
-    PanelQuery,
+    dashboard_error, duplicate_dashboard, get_dashboard, get_dashboard_view, list_versions,
+    set_favourite, DashboardView, PanelQuery,
 };
+
+/// An older version shown read-only: its content and its history row.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct OldVersion {
+    dashboard: Dashboard,
+    version: Version,
+}
+
+/// Load version `n` of `id` and its history row, or `None` when `n` is the newest.
+async fn load_old_version(id: String, n: u32) -> Result<Option<OldVersion>, ServerFnError> {
+    let dashboard = get_dashboard(id.clone(), Some(n)).await?;
+    let versions = list_versions(id).await?;
+    let newest = versions.first().map_or(0, |v| v.number);
+    if n == newest {
+        return Ok(None);
+    }
+    let version = versions
+        .into_iter()
+        .find(|v| v.number == n)
+        .ok_or_else(|| crate::server::to_dashboard_server_error(&DashboardError::NotFound))?;
+    Ok(Some(OldVersion { dashboard, version }))
+}
 
 /// What every panel on the page shares: the toolbar state and who can see what.
 #[derive(Clone)]
@@ -100,6 +130,20 @@ pub fn DashboardDetailPage() -> impl IntoView {
         move || (id.get(), refresh.get()),
         |(id, _)| get_dashboard_view(id),
     );
+    // `?version=N` alone, so the range and filters in the query don't refetch it.
+    let query = use_query_map();
+    let version = Memo::new(move |_| {
+        query.with(|q| q.get(VERSION_QUERY_KEY).and_then(|v| v.parse::<u32>().ok()))
+    });
+    let old_res = Resource::new(
+        move || (id.get(), version.get(), refresh.get()),
+        |(id, version, _)| async move {
+            match version {
+                Some(n) => load_old_version(id, n).await,
+                None => Ok(None),
+            }
+        },
+    );
 
     if let Some(crumb) = use_context::<DashboardCrumb>() {
         Effect::new(move |_| {
@@ -116,8 +160,10 @@ pub fn DashboardDetailPage() -> impl IntoView {
     view! {
         <ContentContainer data_testid="spectra-dashboard-page">
             <Transition fallback=HeaderSkeleton>
-                {move || view_res.get().map(|result| match result {
-                    Ok(view) => view! { <DashboardBody view=view /> }.into_any(),
+                {move || {
+                    let old = old_res.get()?;
+                    view_res.get().map(|result| match result.and_then(|view| old.map(|old| (view, old))) {
+                    Ok((view, old)) => view! { <DashboardBody view=view old=old refresh=refresh /> }.into_any(),
                     Err(e) if is_not_found(&e) => view! { <DashboardNotFound /> }.into_any(),
                     Err(e) => view! {
                         <div data-testid="spectra-dashboard-error">
@@ -132,7 +178,8 @@ pub fn DashboardDetailPage() -> impl IntoView {
                         </div>
                     }
                     .into_any(),
-                })}
+                    })
+                }}
             </Transition>
         </ContentContainer>
     }
@@ -172,9 +219,15 @@ fn DashboardNotFound() -> impl IntoView {
 }
 
 #[component]
-fn DashboardBody(view: DashboardView) -> impl IntoView {
+fn DashboardBody(
+    view: DashboardView,
+    /// The older version to show instead of the newest, if any.
+    old: Option<OldVersion>,
+    /// Bumped to reload the page after a restore.
+    refresh: RwSignal<u32>,
+) -> impl IntoView {
     let DashboardView {
-        dashboard,
+        mut dashboard,
         access,
         favourite,
         missing_permissions,
@@ -182,15 +235,29 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
         variable_gaps,
     } = view;
 
+    let old_version = old.as_ref().map(|o| o.version.clone());
+    if let Some(old) = old {
+        dashboard = old.dashboard;
+    }
     let query = use_query_map();
     let state = Memo::new(move |_| {
         query.with(|q| ViewState::from_query(q.into_iter().map(|(k, v)| (k.as_ref(), v))))
     });
+    let version_param = Memo::new(move |_| query.with(|q| q.get(VERSION_QUERY_KEY)));
     let location = use_location();
     let navigate = use_navigate();
     let on_state = Callback::new(move |next: ViewState| {
         let path = location.pathname.get_untracked();
-        let query = next.to_query();
+        let mut query = next.to_query();
+        // Stay on the version being viewed.
+        if let Some(n) = version_param.get_untracked() {
+            if !query.is_empty() {
+                query.push('&');
+            }
+            query.push_str(VERSION_QUERY_KEY);
+            query.push('=');
+            query.push_str(&n);
+        }
         let href = if query.is_empty() {
             path
         } else {
@@ -230,6 +297,31 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
         });
     });
 
+    let access = RwSignal::new(access);
+    let share_open = RwSignal::new(false);
+    let duplicate_open = RwSignal::new(false);
+    let history_open = RwSignal::new(false);
+    let delete_open = RwSignal::new(false);
+    let restore_target = RwSignal::new(None::<u32>);
+    let path = spectra_dashboard_path(&dashboard.id);
+    let navigate = use_navigate();
+    let on_view = Callback::new({
+        let (path, navigate) = (path.clone(), navigate.clone());
+        move |n: u32| {
+            history_open.set(false);
+            navigate(
+                &format!("{path}?{VERSION_QUERY_KEY}={n}"),
+                NavigateOptions::default(),
+            );
+        }
+    });
+    let back_to_current = Callback::new(move |()| navigate(&path, NavigateOptions::default()));
+    let on_restored = Callback::new(move |()| {
+        back_to_current.run(());
+        refresh.update(|n| *n += 1);
+    });
+    let on_restore = Callback::new(move |n: u32| restore_target.set(Some(n)));
+
     provide_context(PanelEnv {
         dashboard_id: dashboard.id.clone(),
         variables: Arc::new(dashboard.variables.clone()),
@@ -241,6 +333,10 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
 
     let builtin = dashboard.read_only;
     let sections = dashboard.sections.clone();
+    let can_restore = access.with_untracked(|a| a.can_edit);
+    let is_old = old_version.is_some();
+    let owner = dashboard.owner.clone();
+    let (dashboard_id, title) = (dashboard.id.clone(), dashboard.title.clone());
 
     view! {
         <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
@@ -249,6 +345,33 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
                 <div data-testid="spectra-dashboard-duplicate-error">
                     <MessageBar intent=MessageBarIntent::Error>{message}</MessageBar>
                 </div>
+            })}
+            {old_version.map(|version| {
+                let n = version.number;
+                view! {
+                    <div data-testid="spectra-dashboard-version-bar">
+                        <MessageBar intent=MessageBarIntent::Info>
+                            <MessageBarBody>{version_bar_text(&version)}</MessageBarBody>
+                            <MessageBarActions>
+                                <span data-testid="spectra-dashboard-version-back">
+                                    <Button on_click=Callback::new(move |_| back_to_current.run(()))>
+                                        "Back to current"
+                                    </Button>
+                                </span>
+                                {can_restore.then(|| view! {
+                                    <span data-testid="spectra-dashboard-version-restore">
+                                        <Button
+                                            appearance=ButtonAppearance::Primary
+                                            on_click=Callback::new(move |_| on_restore.run(n))
+                                        >
+                                            "Restore this version"
+                                        </Button>
+                                    </span>
+                                })}
+                            </MessageBarActions>
+                        </MessageBar>
+                    </div>
+                }
             })}
             {builtin.then(|| view! {
                 <div data-testid="spectra-dashboard-builtin-bar">
@@ -287,15 +410,52 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
             })}
             <DashboardToolbar
                 dashboard=dashboard.clone()
-                access=access
+                access=access.get_untracked()
                 state=state
                 on_change=on_state
-                on_duplicate=on_duplicate
+                on_duplicate=Callback::new(move |()| duplicate_open.set(true))
+                on_share=Callback::new(move |()| share_open.set(true))
+                on_history=Callback::new(move |()| history_open.set(true))
+                on_delete=Callback::new(move |()| delete_open.set(true))
+                old_version=is_old
             />
             {sections.into_iter().map(|section| view! {
                 <DashboardSection section=section />
             }).collect_view()}
         </Flex>
+        <DuplicateDialog
+            open=duplicate_open
+            dashboard_id=dashboard_id.clone()
+            title=title.clone()
+        />
+        {(!builtin).then(|| view! {
+            <ShareDialog
+                open=share_open
+                dashboard_id=dashboard_id.clone()
+                owner=owner.clone().unwrap_or_default()
+                access=access
+            />
+            <HistoryDrawer
+                open=history_open
+                dashboard_id=dashboard_id.clone()
+                can_restore=can_restore
+                on_view=on_view
+                on_restore=on_restore
+            />
+            <RestoreDialog
+                target=restore_target
+                dashboard_id=dashboard_id.clone()
+                on_restored=on_restored
+            />
+        })}
+        {access.with_untracked(|a| a.can_delete).then(|| view! {
+            <DeleteDialog
+                open=delete_open
+                dashboard_id=dashboard_id.clone()
+                title=title.clone()
+                access=access
+            />
+        })}
     }
 }
 
