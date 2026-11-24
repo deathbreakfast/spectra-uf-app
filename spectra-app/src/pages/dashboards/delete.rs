@@ -47,7 +47,9 @@ pub(super) fn DeleteDialog(
         }
     });
     let access_text = move || {
-        let labels = directory.get().map_or_default(|d| label_map(&d));
+        let labels = directory
+            .get()
+            .map_or_else(std::collections::HashMap::new, |d| label_map(&d));
         let names: Vec<String> = access.with(|a| {
             a.editors
                 .iter()

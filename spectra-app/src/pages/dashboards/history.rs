@@ -254,7 +254,7 @@ pub(super) fn RestoreDialog(
                 <div data-testid="spectra-restore-dialog">
                     <DialogBody>
                         <DialogTitle>
-                            {move || target.get().map_or_default(|n| format!("Restore version {n}?"))}
+                            {move || target.get().map_or_else(String::new, |n| format!("Restore version {n}?"))}
                         </DialogTitle>
                         <DialogContent>
                             <Flex vertical=true gap=SpacingSize::Size120.flex_gap()>
