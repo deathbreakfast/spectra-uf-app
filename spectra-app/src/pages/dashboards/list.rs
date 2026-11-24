@@ -250,7 +250,7 @@ pub fn DashboardIndexPage() -> impl IntoView {
     };
 
     let on_favourite = Callback::new(move |(id, on): (String, bool)| {
-        leptos::task::spawn_local(async move {
+        leptos::task::spawn_local_scoped(async move {
             if set_favourite(id, on).await.is_ok() {
                 refresh.update(|n| *n += 1);
             }

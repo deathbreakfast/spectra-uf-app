@@ -198,7 +198,7 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
     let on_duplicate = Callback::new(move |()| {
         let (id, title, navigate) = (id.clone(), copy_title(&title), navigate.clone());
         duplicating.set(true);
-        leptos::task::spawn_local(async move {
+        leptos::task::spawn_local_scoped(async move {
             if let Ok(copy) = duplicate_dashboard(id, title).await {
                 navigate(
                     &spectra_dashboard_path(&copy.id),
@@ -283,7 +283,7 @@ fn DashboardHeader(dashboard: Dashboard, favourite: bool) -> impl IntoView {
     let title = dashboard.title.clone();
     let on_star = Callback::new(move |_| {
         let (id, next) = (id.clone(), !fav.get_untracked());
-        leptos::task::spawn_local(async move {
+        leptos::task::spawn_local_scoped(async move {
             if set_favourite(id, next).await.is_ok() {
                 fav.set(next);
             }
