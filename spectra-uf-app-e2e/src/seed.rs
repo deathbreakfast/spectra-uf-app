@@ -7,6 +7,9 @@ use gauge::service;
 use serde::Deserialize;
 use serde_json::json;
 use spectra::{try_log_event_at, try_record_gauge_at};
+use spectra_backend::dashboards::{
+    store, ChartKind, DashboardError, Layout, Panel, PanelSource, Section, TableOpts, Variable,
+};
 use spectra_backend::{dashboard_presets, spectra_query_permission_name};
 
 use crate::e2e_spectra::e2e_spectra;
@@ -18,7 +21,7 @@ use crate::gate_demos::{write_e2e_auth_kind, E2eAuthKind};
 
 #[derive(Debug, Deserialize)]
 pub struct SeedRequest {
-    /// `anonymous` | `admin` | `admin_noperms` | `outsider` | `unverified`
+    /// `anonymous` | `admin` | `admin_noperms` | `admin_partial` | `outsider` | `unverified`
     #[serde(default = "default_auth")]
     pub auth: String,
     /// When `true`, skip writing Spectra rows (auth/session still applied).
@@ -141,7 +144,10 @@ async fn seed_spectra_rows(
     skip_data: bool,
     bulk_events: u32,
 ) -> Result<(), StatusCode> {
-    if matches!(kind, E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms) {
+    if matches!(
+        kind,
+        E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms | E2eAuthKind::AdminPartial
+    ) {
         let admin = e2e_admin_valence();
         if matches!(kind, E2eAuthKind::Admin) {
             grant_table_query_perm(&admin, "admin", E2E_EVENT_TABLE).await?;
@@ -151,6 +157,10 @@ async fn seed_spectra_rows(
             for metric in preset_metrics() {
                 grant_table_query_perm(&admin, "admin", metric).await?;
             }
+        } else if matches!(kind, E2eAuthKind::AdminPartial) {
+            // The metric stays readable; the event table's panels lock.
+            grant_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;
+            revoke_table_query_perm(&admin, "admin", E2E_EVENT_TABLE).await?;
         } else if matches!(kind, E2eAuthKind::AdminNoPerms) {
             revoke_table_query_perm(&admin, "admin", E2E_EVENT_TABLE).await?;
             revoke_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;
@@ -162,7 +172,12 @@ async fn seed_spectra_rows(
         }
     }
 
-    if skip_data || !matches!(kind, E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms) {
+    if skip_data
+        || !matches!(
+            kind,
+            E2eAuthKind::Admin | E2eAuthKind::AdminNoPerms | E2eAuthKind::AdminPartial
+        )
+    {
         return Ok(());
     }
 
@@ -259,6 +274,142 @@ async fn seed_spectra_rows(
     Ok(())
 }
 
+/// Title of the saved dashboard the dashboards spec opens.
+pub const CHECKOUT_DASHBOARD_TITLE: &str = "Checkout health";
+
+static CHECKOUT_DASHBOARD_ID: tokio::sync::OnceCell<String> = tokio::sync::OnceCell::const_new();
+
+fn checkout_panel(
+    id: &str,
+    title: &str,
+    source: PanelSource,
+    chart: ChartKind,
+    at: (u16, u8, u8),
+) -> Panel {
+    let (row, col, span) = at;
+    Panel {
+        id: id.into(),
+        title: title.into(),
+        source,
+        chart,
+        measure: None,
+        bucket: None,
+        group_by: if matches!(chart, ChartKind::Bar | ChartKind::Pie) {
+            vec!["severity".into()]
+        } else {
+            Vec::new()
+        },
+        filters: Vec::new(),
+        table: (chart == ChartKind::Table).then(|| TableOpts {
+            columns: vec!["ts".into(), "message".into(), "severity".into()],
+            sort: None,
+            limit: 10,
+        }),
+        layout: Layout {
+            col,
+            span,
+            row,
+            height: 4,
+        },
+        keep_window: None,
+    }
+}
+
+/// Sections and panels of the seeded dashboard: one of each panel kind over the e2e event
+/// table and metric, plus a text panel, and a `host` variable the event table has no field
+/// for.
+fn checkout_sections() -> Vec<Section> {
+    let events = || PanelSource::EventTable {
+        table: E2E_EVENT_TABLE.into(),
+    };
+    vec![
+        Section {
+            id: "overview".into(),
+            title: "Overview".into(),
+            collapsed: false,
+            panels: vec![
+                checkout_panel("events", "Events in range", events(), ChartKind::SingleStat, (0, 0, 4)),
+                checkout_panel("by-severity", "Events by severity", events(), ChartKind::Bar, (0, 4, 4)),
+                checkout_panel("severity-share", "Severity share", events(), ChartKind::Pie, (0, 8, 4)),
+            ],
+        },
+        Section {
+            id: "trends".into(),
+            title: "Trends".into(),
+            collapsed: false,
+            panels: vec![
+                checkout_panel(
+                    "counter",
+                    "Smoke counter",
+                    PanelSource::Metric {
+                        metric: E2E_METRIC_NAME.into(),
+                    },
+                    ChartKind::TimeSeries,
+                    (0, 0, 6),
+                ),
+                checkout_panel("over-time", "Events over time", events(), ChartKind::TimeSeries, (0, 6, 6)),
+            ],
+        },
+        Section {
+            id: "details".into(),
+            title: "Details".into(),
+            collapsed: false,
+            panels: vec![
+                checkout_panel("newest", "Newest events", events(), ChartKind::Table, (0, 0, 8)),
+                checkout_panel(
+                    "notes",
+                    "Notes",
+                    PanelSource::Text {
+                        markdown: "## Runbook\n\nIf **warnings** climb, check the [schemas](/spectra/schema)."
+                            .into(),
+                    },
+                    ChartKind::Table,
+                    (0, 8, 4),
+                ),
+            ],
+        },
+    ]
+}
+
+/// The admin-owned "Checkout health" dashboard, created on first use and reused after.
+async fn checkout_dashboard_id() -> Result<String, StatusCode> {
+    CHECKOUT_DASHBOARD_ID
+        .get_or_try_init(|| async {
+            let admin = e2e_admin_valence();
+            let fail = |err: DashboardError| {
+                log::error!("e2e seed: Checkout health dashboard failed: {err}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            let created = store::create(
+                &admin,
+                CHECKOUT_DASHBOARD_TITLE,
+                "Orders, warnings and the newest checkout events.",
+                None,
+            )
+            .await
+            .map_err(fail)?;
+            let mut dashboard = created.clone();
+            dashboard.sections = checkout_sections();
+            dashboard.variables = vec![Variable {
+                name: "host".into(),
+                field: "host".into(),
+                default: None,
+            }];
+            store::save(
+                &admin,
+                &dashboard,
+                created.version,
+                Some("Seed panels"),
+                None,
+            )
+            .await
+            .map_err(fail)?;
+            Ok(created.id)
+        })
+        .await
+        .cloned()
+}
+
 pub async fn seed_data(
     session: tower_sessions::Session,
     Json(body): Json<SeedRequest>,
@@ -269,6 +420,7 @@ pub async fn seed_data(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     seed_spectra_rows(kind, body.skip_data, body.bulk_events).await?;
+    let checkout_dashboard_id = checkout_dashboard_id().await?;
 
     let fixtures = e2e_fixtures();
     Ok(Json(serde_json::json!({
@@ -282,6 +434,7 @@ pub async fn seed_data(
             "seeded_event_count": fixtures.seeded_event_count,
             "seed_message": "Playwright seed row",
             "seed_metric_value": 42.0,
+            "checkout_dashboard_id": checkout_dashboard_id,
         }
     })))
 }

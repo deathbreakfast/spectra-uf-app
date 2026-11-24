@@ -246,6 +246,10 @@ pub struct DashboardSummary {
     pub version: u32,
     /// When the newest version was saved.
     pub updated_at: DateTime<Utc>,
+    /// People and groups the dashboard is shared with. Filled only on the owner's own
+    /// dashboards; empty for everyone else and for built-ins.
+    #[serde(default)]
+    pub shared_with: Vec<Principal>,
 }
 
 /// One saved version of a dashboard. Versions are kept for 180 days.
@@ -494,6 +498,7 @@ impl Dashboard {
             favourite,
             version: self.version,
             updated_at: self.updated_at,
+            shared_with: Vec::new(),
         }
     }
 }

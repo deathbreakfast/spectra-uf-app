@@ -28,7 +28,7 @@ fn principals_from(
         .collect()
 }
 
-async fn granted(
+pub(super) async fn granted(
     v: &Valence,
     id: &str,
     action: ResourceAction,

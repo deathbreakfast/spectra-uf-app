@@ -24,6 +24,8 @@ pub enum E2eAuthKind {
     Admin,
     /// Admin session without per-table `spectra.query.{table}` grants.
     AdminNoPerms,
+    /// Admin session with the metric's grant but not the event table's, for locked panels.
+    AdminPartial,
     /// Verified user without QueryTable.
     Outsider,
     /// Authenticated but email unverified.
@@ -36,6 +38,7 @@ impl E2eAuthKind {
             Self::Anonymous => "anonymous",
             Self::Admin => "admin",
             Self::AdminNoPerms => "admin_noperms",
+            Self::AdminPartial => "admin_partial",
             Self::Outsider => "outsider",
             Self::Unverified => "unverified",
         }
@@ -45,6 +48,7 @@ impl E2eAuthKind {
         match raw {
             "admin" | "authenticated_verified" => Self::Admin,
             "admin_noperms" => Self::AdminNoPerms,
+            "admin_partial" => Self::AdminPartial,
             "outsider" => Self::Outsider,
             "unverified" | "authenticated_unverified" => Self::Unverified,
             _ => Self::Anonymous,
@@ -55,7 +59,7 @@ impl E2eAuthKind {
     pub const fn session_user_id(self) -> Option<&'static str> {
         match self {
             Self::Anonymous => None,
-            Self::Admin | Self::AdminNoPerms => Some(E2E_ADMIN_USER),
+            Self::Admin | Self::AdminNoPerms | Self::AdminPartial => Some(E2E_ADMIN_USER),
             Self::Outsider => Some(E2E_OUTSIDER_USER),
             Self::Unverified => Some(E2E_UNVERIFIED_USER),
         }
@@ -64,14 +68,16 @@ impl E2eAuthKind {
     pub fn to_session(self) -> AuthSession {
         match self {
             Self::Anonymous => AuthSession::Anonymous(AnonymousUser { reason: None }),
-            Self::Admin | Self::AdminNoPerms => AuthSession::Authenticated(AuthenticatedUser {
-                user_id: "admin".into(),
-                email: Some("admin@example.com".into()),
-                display_name: Some("Admin".into()),
-                avatar_url: None,
-                roles: vec!["user".into()],
-                email_verified: true,
-            }),
+            Self::Admin | Self::AdminNoPerms | Self::AdminPartial => {
+                AuthSession::Authenticated(AuthenticatedUser {
+                    user_id: "admin".into(),
+                    email: Some("admin@example.com".into()),
+                    display_name: Some("Admin".into()),
+                    avatar_url: None,
+                    roles: vec!["user".into()],
+                    email_verified: true,
+                })
+            }
             Self::Outsider => AuthSession::Authenticated(AuthenticatedUser {
                 user_id: "outsider".into(),
                 email: Some("outsider@example.com".into()),

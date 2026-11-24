@@ -1,78 +1,47 @@
+//! Saved dashboards: the list at `/spectra/dashboards` and one dashboard at
+//! `/spectra/dashboards/:id`.
+//!
+//! Both read the store through the server functions in `crate::server::dashboards` and
+//! `crate::server::dashboard_view`, as the session actor.
+
+mod detail;
+mod list;
+mod new_dialog;
 mod panel;
+mod panels;
+mod section;
+mod toolbar;
 
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
-use orbital::components::{AutoGrid, Caption1, ContentContainer, EmptyState, SpacingSize, Title3};
-use orbital::primitives::{Body1, Card, CardContent, CardHeader, Flex, Link};
-use spectra_backend::{dashboard_preset, dashboard_presets, spectra_dashboard_path};
+pub use detail::DashboardDetailPage;
+pub use list::DashboardIndexPage;
 
-use self::panel::DashboardPanelView;
+use chrono::{DateTime, Utc};
 
-/// Dashboards index: the curated seed dashboards as a card grid.
-#[component]
-pub fn DashboardIndexPage() -> impl IntoView {
-    view! {
-        <ContentContainer data_testid="spectra-dashboards-page">
-            <Flex vertical=true gap=SpacingSize::Size240.flex_gap()>
-                <Title3>"Dashboards"</Title3>
-                <Caption1>"Curated views of platform metrics"</Caption1>
-                <AutoGrid min=Signal::derive(|| "270px".to_string())>
-                    {dashboard_presets().iter().map(|preset| {
-                        let test_id = format!("spectra-dashboard-card-{}", preset.id);
-                        let link_test_id = format!("spectra-dashboard-card-{}-open", preset.id);
-                        view! {
-                            <div data-testid=test_id>
-                                <Card>
-                                    <CardHeader>
-                                        <Title3>{preset.title}</Title3>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <Flex vertical=true gap=SpacingSize::Size80.flex_gap()>
-                                            <Body1>{preset.description}</Body1>
-                                            <span data-testid=link_test_id>
-                                                <Link href=spectra_dashboard_path(preset.id)>"Open dashboard"</Link>
-                                            </span>
-                                        </Flex>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        }
-                    }).collect_view()}
-                </AutoGrid>
-            </Flex>
-        </ContentContainer>
-    }
+/// How the list and the page show a save time: the date, in UTC so server and browser
+/// render the same text.
+fn saved_date(at: DateTime<Utc>) -> String {
+    at.format("%b %-d, %Y").to_string()
 }
 
-/// One curated dashboard: a metric panel per preset entry.
-#[component]
-pub fn DashboardDetailPage() -> impl IntoView {
-    let params = use_params_map();
-    let id = Memo::new(move |_| params.with(|p| p.get("id").unwrap_or_default()));
+/// Title for a copy made with Duplicate.
+fn copy_title(title: &str) -> String {
+    format!("Copy of {title}")
+}
 
-    view! {
-        <ContentContainer data_testid="spectra-dashboard-page">
-            {move || dashboard_preset(&id.get()).map_or_else(
-                || view! {
-                    <div data-testid="spectra-dashboard-not-found">
-                        <EmptyState
-                            message="Dashboard not found"
-                            description="Pick one from the dashboards list."
-                        />
-                    </div>
-                }.into_any(),
-                |preset| view! {
-                    <Flex vertical=true gap=SpacingSize::Size240.flex_gap()>
-                        <Title3>{preset.title}</Title3>
-                        <Caption1>{preset.description}</Caption1>
-                        <AutoGrid min=Signal::derive(|| "360px".to_string())>
-                            {preset.panels.iter().map(|panel| {
-                                view! { <DashboardPanelView panel=*panel /> }
-                            }).collect_view()}
-                        </AutoGrid>
-                    </Flex>
-                }.into_any(),
-            )}
-        </ContentContainer>
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+
+    use super::*;
+
+    #[test]
+    fn saved_date_reads_as_a_date() {
+        let at = Utc.with_ymd_and_hms(2026, 11, 3, 23, 59, 0).unwrap();
+        assert_eq!(saved_date(at), "Nov 3, 2026");
+    }
+
+    #[test]
+    fn copy_title_names_the_original() {
+        assert_eq!(copy_title("Checkout health"), "Copy of Checkout health");
     }
 }

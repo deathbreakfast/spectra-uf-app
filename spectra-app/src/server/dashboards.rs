@@ -45,7 +45,7 @@ pub fn dashboard_error(err: &ServerFnError) -> Option<DashboardError> {
 }
 
 #[cfg(feature = "ssr")]
-async fn session_valence() -> Result<valence::Valence, ServerFnError> {
+pub(super) async fn session_valence() -> Result<valence::Valence, ServerFnError> {
     let ctx = higgs::Higgs::from_request().await?;
     require_session(&ctx)?;
     ctx.valence()
@@ -53,7 +53,7 @@ async fn session_valence() -> Result<valence::Valence, ServerFnError> {
 }
 
 #[cfg(feature = "ssr")]
-fn to_sfe(err: DashboardError) -> ServerFnError {
+pub(super) fn to_sfe(err: DashboardError) -> ServerFnError {
     to_dashboard_server_error(&err)
 }
 

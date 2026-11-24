@@ -1,3 +1,3 @@
 mod spectra_layout;
 
-pub use spectra_layout::SpectraLayout;
+pub use spectra_layout::{DashboardCrumb, SpectraLayout};
