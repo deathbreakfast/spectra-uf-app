@@ -16,6 +16,20 @@ pub use detail::DashboardDetailPage;
 pub use list::DashboardIndexPage;
 
 use chrono::{DateTime, Utc};
+use leptos::prelude::ServerFnError;
+use spectra_backend::dashboards::DashboardError;
+
+use crate::server::dashboard_error;
+
+/// The message shown when a dashboard action fails: a validation message as written,
+/// otherwise the error's own text.
+fn action_error_text(err: &ServerFnError) -> String {
+    match dashboard_error(err) {
+        Some(DashboardError::Validation { message }) => message,
+        Some(other) => other.to_string(),
+        None => err.to_string(),
+    }
+}
 
 /// How the list and the page show a save time: the date, in UTC so server and browser
 /// render the same text.

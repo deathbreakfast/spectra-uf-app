@@ -21,7 +21,7 @@ use spectra_backend::spectra_dashboard_path;
 
 use super::section::DashboardSection;
 use super::toolbar::DashboardToolbar;
-use super::{copy_title, saved_date};
+use super::{action_error_text, copy_title, saved_date};
 use crate::layout::DashboardCrumb;
 use crate::server::{
     dashboard_error, duplicate_dashboard, get_dashboard_view, set_favourite, DashboardView,
@@ -66,6 +66,21 @@ pub(super) fn join_names(names: &[String]) -> String {
         [] => String::new(),
         [one] => one.clone(),
         [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// The locked-panels warning. Request access opens the form for the first permission
+/// only, so with several missing it says which one the request covers.
+pub(super) fn missing_access_text(missing: &[String]) -> String {
+    let locked = format!(
+        "Some panels are locked because you don't have {}.",
+        join_names(missing)
+    );
+    match missing {
+        [first, _, ..] => format!(
+            "{locked} Request access asks for {first}; request the others the same way from Gauge."
+        ),
+        _ => locked,
     }
 }
 
@@ -195,15 +210,21 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
     let title = dashboard.title.clone();
     let navigate = use_navigate();
     let duplicating = RwSignal::new(false);
+    let duplicate_error = RwSignal::new(None::<String>);
     let on_duplicate = Callback::new(move |()| {
         let (id, title, navigate) = (id.clone(), copy_title(&title), navigate.clone());
         duplicating.set(true);
+        duplicate_error.set(None);
         leptos::task::spawn_local_scoped(async move {
-            if let Ok(copy) = duplicate_dashboard(id, title).await {
-                navigate(
+            match duplicate_dashboard(id, title).await {
+                Ok(copy) => navigate(
                     &spectra_dashboard_path(&copy.id),
                     NavigateOptions::default(),
-                );
+                ),
+                Err(e) => duplicate_error.set(Some(format!(
+                    "Couldn't duplicate this dashboard: {}",
+                    action_error_text(&e)
+                ))),
             }
             duplicating.set(false);
         });
@@ -224,6 +245,11 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
     view! {
         <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
             <DashboardHeader dashboard=dashboard.clone() favourite=favourite />
+            {move || duplicate_error.get().map(|message| view! {
+                <div data-testid="spectra-dashboard-duplicate-error">
+                    <MessageBar intent=MessageBarIntent::Error>{message}</MessageBar>
+                </div>
+            })}
             {builtin.then(|| view! {
                 <div data-testid="spectra-dashboard-builtin-bar">
                     <MessageBar intent=MessageBarIntent::Info>
@@ -247,10 +273,7 @@ fn DashboardBody(view: DashboardView) -> impl IntoView {
                 <div data-testid="spectra-dashboard-missing-access">
                     <MessageBar intent=MessageBarIntent::Warning>
                         <MessageBarBody>
-                            {format!(
-                                "Some panels are locked because you don't have {}.",
-                                join_names(&missing_permissions)
-                            )}
+                            {missing_access_text(&missing_permissions)}
                         </MessageBarBody>
                         <MessageBarActions>
                             <span data-testid="spectra-dashboard-request-access">
@@ -348,6 +371,19 @@ fn DashboardHeader(dashboard: Dashboard, favourite: bool) -> impl IntoView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_access_names_what_the_request_covers() {
+        let one = vec!["spectra.query.a".to_string()];
+        assert_eq!(
+            missing_access_text(&one),
+            "Some panels are locked because you don't have spectra.query.a."
+        );
+        let two = vec!["spectra.query.a".to_string(), "spectra.query.b".to_string()];
+        assert!(missing_access_text(&two).ends_with(
+            "Request access asks for spectra.query.a; request the others the same way from Gauge."
+        ));
+    }
 
     #[test]
     fn join_names_reads_as_a_sentence() {

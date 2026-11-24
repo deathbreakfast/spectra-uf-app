@@ -19,6 +19,7 @@ use spectra_core::{
 
 use super::model::{
     ChartKind, Dashboard, DashboardFilter, FilterOp, Panel, PanelSource, Variable, Window,
+    MAX_TABLE_PANEL_ROWS,
 };
 use crate::{encode_ops_path_segment, spectra_metric_explore_path, spectra_schema_explore_path};
 
@@ -560,7 +561,10 @@ pub fn event_rows_query(
         partition: None,
         pagination: GridPaginationModel {
             page: 0,
-            page_size: opts.map_or(DEFAULT_TABLE_PANEL_ROWS, |t| t.limit),
+            // The panel comes from the client, so clamp what `Dashboard::validate` would.
+            page_size: opts
+                .map_or(DEFAULT_TABLE_PANEL_ROWS, |t| t.limit)
+                .clamp(1, MAX_TABLE_PANEL_ROWS),
         },
         sort: vec![sort],
         filter: to_grid_filter(filters),
@@ -1024,6 +1028,18 @@ mod tests {
             &[],
         );
         assert_eq!(plain.pagination.page_size, DEFAULT_TABLE_PANEL_ROWS);
+        for (limit, want) in [(u32::MAX, MAX_TABLE_PANEL_ROWS), (0, 1)] {
+            let crafted = Panel {
+                table: Some(TableOpts {
+                    columns: Vec::new(),
+                    sort: None,
+                    limit,
+                }),
+                ..event("t", ChartKind::Table)
+            };
+            let q = event_rows_query(&crafted, "t", Window::Relative { secs: 60 }, now(), &[]);
+            assert_eq!(q.pagination.page_size, want);
+        }
         assert_eq!(plain.sort[0].sort, GridSortDirection::Desc);
     }
 

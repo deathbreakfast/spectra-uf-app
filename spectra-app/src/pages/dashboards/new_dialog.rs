@@ -10,22 +10,14 @@ use orbital::primitives::{
     DialogTitle, Field, Flex, Input, InputAppearance, InputBind, MessageBar, MessageBarIntent,
     Radio, RadioGroup, Select, SelectBind, Textarea, TextareaBind,
 };
-use spectra_backend::dashboards::{DashboardError, DashboardSummary};
+use spectra_backend::dashboards::DashboardSummary;
 use spectra_backend::spectra_dashboard_path;
 
-use crate::server::{create_dashboard, dashboard_error};
+use super::action_error_text;
+use crate::server::create_dashboard;
 
 const START_BLANK: &str = "blank";
 const START_COPY: &str = "copy";
-
-/// The message shown when Create fails.
-fn create_error_text(err: &ServerFnError) -> String {
-    match dashboard_error(err) {
-        Some(DashboardError::Validation { message }) => message,
-        Some(other) => other.to_string(),
-        None => err.to_string(),
-    }
-}
 
 /// Opens with New dashboard. Create opens the new dashboard.
 #[component]
@@ -69,7 +61,7 @@ pub(super) fn NewDashboardDialog(
                         NavigateOptions::default(),
                     );
                 }
-                Err(e) => error.set(Some(create_error_text(&e))),
+                Err(e) => error.set(Some(action_error_text(&e))),
             }
         }
     });
@@ -153,10 +145,11 @@ pub(super) fn NewDashboardDialog(
 mod tests {
     use super::*;
     use crate::server::to_dashboard_server_error;
+    use spectra_backend::dashboards::DashboardError;
 
     #[test]
     fn validation_errors_show_their_own_message() {
         let err = to_dashboard_server_error(&DashboardError::validation("Title is required"));
-        assert_eq!(create_error_text(&err), "Title is required");
+        assert_eq!(action_error_text(&err), "Title is required");
     }
 }
