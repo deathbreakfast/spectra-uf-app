@@ -9,6 +9,7 @@
 //! [`save_dashboard`] returns [`DashboardError::Conflict`].
 
 use leptos::prelude::*;
+use leptos::server_fn::codec::Json;
 // `DashboardAccess` stays path-qualified: `#[server] fn dashboard_access` generates a
 // struct with that name in this module.
 use spectra_backend::dashboards::{
@@ -193,7 +194,10 @@ pub async fn set_favourite(
 }
 
 /// Set who can edit and who can view a dashboard. Owner only.
+///
+/// Sent as JSON: the default URL encoding drops an empty `editors` or `viewers` list.
 #[uf_product_macros::server(permission = "QueryTable")]
+#[server(input = Json)]
 pub async fn share_dashboard(
     /// Dashboard id.
     id: String,

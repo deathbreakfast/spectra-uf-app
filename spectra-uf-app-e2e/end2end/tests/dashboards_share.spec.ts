@@ -19,7 +19,7 @@ async function freshDashboard(page: Page): Promise<string> {
 }
 
 async function moreAction(page: Page, name: string) {
-  await page.getByTestId("spectra-dashboard-more").getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name }).click();
 }
 
@@ -91,7 +91,7 @@ test.describe("pw-spectra-dashboards-share", () => {
     // A viewer can't delete either.
     await dialog.getByTestId("spectra-share-close").getByRole("button").click();
     await expect(dialog).toBeHidden();
-    await page.getByTestId("spectra-dashboard-more").getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("button", { name: "More actions" }).click();
     await expect(page.getByRole("menuitem", { name: "Version history" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Delete" })).toHaveCount(0);
   });
