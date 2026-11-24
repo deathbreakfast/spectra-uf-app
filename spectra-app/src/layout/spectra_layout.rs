@@ -101,7 +101,7 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                     }.into_any());
                 }
                 if path.starts_with("/spectra/dashboards/") {
-                    let title = crumb.map_or_default(|c| c.0.get());
+                    let title = crumb.and_then(|c| c.0.get());
                     return Some(view! {
                         <BreadcrumbItem>
                             <Link href="/spectra/dashboards">

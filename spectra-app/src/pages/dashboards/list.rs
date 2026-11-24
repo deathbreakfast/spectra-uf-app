@@ -256,7 +256,7 @@ pub fn DashboardIndexPage() -> impl IntoView {
             }
         });
     });
-    let all_dashboards = Signal::derive(move || loaded.get().map_or_default(|l| l.all));
+    let all_dashboards = Signal::derive(move || loaded.get().map_or_else(Vec::new, |l| l.all));
 
     view! {
         <ContentContainer data_testid="spectra-dashboards-page">

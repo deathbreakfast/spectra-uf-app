@@ -330,7 +330,7 @@ pub fn source_fields(source: &str) -> Option<Vec<String>> {
 pub fn pii_fields(source: &str) -> BTreeSet<String> {
     SchemaRegistry::global()
         .get_schema(source)
-        .map_or_default(|schema| {
+        .map_or_else(BTreeSet::new, |schema| {
             schema
                 .fields
                 .iter()

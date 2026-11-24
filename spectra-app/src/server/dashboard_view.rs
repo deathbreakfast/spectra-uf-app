@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 
 use leptos::prelude::*;
+use leptos::server_fn::codec::Json;
 use serde::{Deserialize, Serialize};
 // `DashboardAccess` stays path-qualified, as in `dashboards.rs`.
 use spectra_backend::dashboards::{Dashboard, DashboardFilter, Panel, Variable, Window};
@@ -175,7 +176,10 @@ pub async fn get_dashboard_view(
 }
 
 /// Load one panel's data as the session actor, with personal fields hidden.
+///
+/// Sent as JSON: the default URL encoding drops empty lists inside [`Panel`].
 #[uf_product_macros::server(permission = "QueryTable")]
+#[server(input = Json)]
 pub async fn query_dashboard_panel(
     /// The panel and the toolbar state it follows.
     query: PanelQuery,
