@@ -17,8 +17,14 @@ use uf_product::routes::RequireAuthenticated;
 
 use crate::AppMetadata;
 
+/// The current dashboard's breadcrumb label, set by the dashboard page: its title once it
+/// loads, or "Not found". `None` while it loads, so the raw id never shows.
+#[derive(Clone, Copy)]
+pub struct DashboardCrumb(pub RwSignal<Option<String>>);
+
 #[component]
 pub fn SpectraLayout() -> impl IntoView {
+    provide_context(DashboardCrumb(RwSignal::new(None)));
     let app_name = AppMetadata::name().to_string();
     let selected_value = RwSignal::new(None::<String>);
     let open_categories = RwSignal::new(Vec::<String>::new());
@@ -67,6 +73,7 @@ pub fn SpectraLayout() -> impl IntoView {
 fn SpectraBreadcrumbTrail() -> impl IntoView {
     let location = use_location();
     let params = use_params_map();
+    let crumb = use_context::<DashboardCrumb>();
     view! {
         <Breadcrumb>
             <BreadcrumbItem>
@@ -94,18 +101,18 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                     }.into_any());
                 }
                 if path.starts_with("/spectra/dashboards/") {
-                    let id = params.with(|p| p.get("id").unwrap_or_default());
-                    let title = spectra_backend::dashboard_preset(&id)
-                        .map_or(id, |preset| preset.title.to_string());
+                    let title = crumb.and_then(|c| c.0.get());
                     return Some(view! {
                         <BreadcrumbItem>
                             <Link href="/spectra/dashboards">
                                 <BreadcrumbButton>"Dashboards"</BreadcrumbButton>
                             </Link>
                         </BreadcrumbItem>
-                        <BreadcrumbItem>
-                            <BreadcrumbButton current=true>{title}</BreadcrumbButton>
-                        </BreadcrumbItem>
+                        {title.map(|title| view! {
+                            <BreadcrumbItem>
+                                <BreadcrumbButton current=true>{title}</BreadcrumbButton>
+                            </BreadcrumbItem>
+                        })}
                     }.into_any());
                 }
                 if path == "/spectra/graph" {

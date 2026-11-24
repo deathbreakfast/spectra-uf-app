@@ -18,7 +18,7 @@ use std::collections::HashSet;
 
 use chrono::Utc;
 use gauge::resource_permissions::{
-    delete_resource_permission_bundle, ensure_resource_permission_bundle, ActorId,
+    delete_resource_permission_bundle, ensure_resource_permission_bundle, ActorId, ResourceAction,
     ResourcePermissionSpec,
 };
 use serde::{Deserialize, Serialize};
@@ -29,6 +29,7 @@ use super::model::{
     DashboardSummary, Section, Variable, Version,
 };
 use super::policies::SPECTRA_DASHBOARD;
+use super::sharing::granted;
 use crate::builtin_dashboards;
 use crate::dashboard_presets::builtin_dashboard;
 use crate::generated::{SpectraDashboard, SpectraDashboardFavourite, SpectraDashboardVersion};
@@ -152,6 +153,22 @@ async fn favourite_ids(v: &Valence, user_id: &str) -> Result<HashSet<String>, Da
     Ok(rows.iter().map(|f| record_bare_id(f.dashboard())).collect())
 }
 
+/// Whether the caller starred this dashboard.
+///
+/// # Errors
+///
+/// [`DashboardError::Forbidden`] for a caller who isn't a signed-in user;
+/// [`DashboardError::Store`] when Valence fails.
+pub async fn is_favourite(v: &Valence, id: &str) -> Result<bool, DashboardError> {
+    let me = caller(v)?;
+    let rows = SpectraDashboardFavourite::query(v, valence::use_!(r"When you **open a Spectra dashboard**, we **check whether you starred it** so its star shows filled in. Only you see your own stars."))
+        .where_user(RecordPredicate::Equals(RecordId::new(USER_TABLE, &me)))
+        .where_dashboard(RecordPredicate::Equals(RecordId::new(DASHBOARD_TABLE, id)))
+        .await
+        .map_err(map_valence)?;
+    Ok(!rows.is_empty())
+}
+
 /// List the dashboards the caller can open.
 ///
 /// `Mine` is what the caller owns, `Shared` is what others shared with them, and `All` is
@@ -193,7 +210,15 @@ pub async fn list(
         // Mine is filtered in the query; Shared (readable, not owned) still needs this pass.
         if scope != DashboardScope::Shared || owner != me {
             let dashboard = row_to_dashboard(row)?;
-            out.push(dashboard.summary(favourites.contains(&dashboard.id)));
+            let mut summary = dashboard.summary(favourites.contains(&dashboard.id));
+            if owner == me {
+                // Viewers include editors, so the View grant alone names everyone.
+                summary.shared_with = granted(v, &dashboard.id, ResourceAction::View)
+                    .await?
+                    .into_iter()
+                    .collect();
+            }
+            out.push(summary);
         }
     }
     if let Some(needle) = q.map(str::trim).filter(|s| !s.is_empty()) {

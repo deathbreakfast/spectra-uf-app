@@ -7,6 +7,7 @@
 //! store's list and get as read-only built-ins.
 
 mod model;
+pub mod view;
 
 pub use model::{
     validate_dashboard_text, ChartKind, Dashboard, DashboardAccess, DashboardError,

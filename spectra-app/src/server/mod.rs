@@ -41,10 +41,14 @@ pub use spectra_backend::{
 
 mod callsite_graph;
 mod dashboard;
+mod dashboard_view;
 mod dashboards;
 mod error;
 pub use callsite_graph::{get_callsite_graph, MAX_CALLSITE_WINDOW_HOURS};
 pub use dashboard::{get_spectra_dashboard_summary, SpectraDashboardSummary};
+pub use dashboard_view::{
+    get_dashboard_view, query_dashboard_panel, DashboardView, PanelData, PanelQuery,
+};
 pub use dashboards::{
     create_dashboard, dashboard_access, dashboard_error, delete_dashboard, duplicate_dashboard,
     get_dashboard, list_dashboards, list_versions, restore_version, save_dashboard, set_favourite,

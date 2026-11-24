@@ -23,9 +23,11 @@
 //!   [Get started](#explore-events)
 //! - **Metric explore** — [`MetricExplorePage`] loads time-series and headline stats via
 //!   [`query_metrics`]. [Get started](#explore-metrics)
-//! - **Seed dashboards** — [`DashboardIndexPage`] and [`DashboardDetailPage`] chart the
-//!   curated Photon throughput and Valence DB activity presets from
-//!   `spectra_backend::dashboard_presets`, one [`query_metrics`] call per panel.
+//! - **Dashboards** — [`DashboardIndexPage`] lists saved dashboards (yours, shared with you,
+//!   and the built-ins) and [`DashboardDetailPage`] shows one: a toolbar for range, variables
+//!   and filters, collapsible sections, and chart, table and text panels. Panels the viewer
+//!   can't query show locked and never fetch; personal fields are masked.
+//!   [`server::get_dashboard_view`] and [`server::query_dashboard_panel`] load them.
 //! - **Callsite graph** — [`CallsiteGraphPage`] links the source lines that logged event rows to
 //!   the tables they wrote, via [`get_callsite_graph`]. [Get started](#trace-emit-sites)
 //! - **Server function wrappers** — [`mod@server`] Higgs `#[server]` fns, per-table Gauge
@@ -199,8 +201,8 @@
 //! | Path | Page | Key server fn(s) |
 //! |---|---|---|
 //! | `/spectra` | [`SpectraHomePage`] | [`list_schema_metadata`] |
-//! | `/spectra/dashboards` | [`DashboardIndexPage`] | none (static presets) |
-//! | `/spectra/dashboards/:id` | [`DashboardDetailPage`] | [`query_metrics`] |
+//! | `/spectra/dashboards` | [`DashboardIndexPage`] | [`server::list_dashboards`] |
+//! | `/spectra/dashboards/:id` | [`DashboardDetailPage`] | [`server::get_dashboard_view`], [`server::query_dashboard_panel`] |
 //! | `/spectra/schema` | [`SchemaIndexPage`] | [`list_schema_metadata`] |
 //! | `/spectra/schema/:name` | [`SchemaDetailPage`] | [`get_schema_metadata`] |
 //! | `/spectra/schema/:name/explore` | [`EventExplorePage`] | [`query_events`], [`query_event_aggregate`] |

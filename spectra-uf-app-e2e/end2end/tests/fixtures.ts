@@ -4,6 +4,7 @@ export type SeedAuthKind =
   | "anonymous"
   | "admin"
   | "admin_noperms"
+  | "admin_partial"
   | "outsider"
   | "unverified";
 
@@ -15,6 +16,7 @@ export type SeedFixtures = {
   seeded_event_count: number;
   seed_message: string;
   seed_metric_value: number;
+  checkout_dashboard_id: string;
 };
 
 export type SeedResponse = {
