@@ -7,7 +7,9 @@
 mod detail;
 mod edit;
 mod edit_bar;
+mod edit_dialogs;
 mod edit_grid;
+mod edit_save;
 mod list;
 mod new_dialog;
 mod panel;

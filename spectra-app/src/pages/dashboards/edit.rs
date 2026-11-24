@@ -33,7 +33,9 @@ use super::detail::{
     is_not_found, join_names, use_view_state, DashboardNotFound, HeaderSkeleton, PanelEnv,
 };
 use super::edit_bar::EditBar;
+use super::edit_dialogs::{CompareDialog, ConfirmDialog, TextPanelDialog};
 use super::edit_grid::{next_free_row, EditGrid, EditSectionHeader, PhoneSectionList};
+use super::edit_save::{use_dashboard_save, DashboardSave};
 use super::section::DashboardSection;
 use super::toolbar::DashboardToolbar;
 use super::variables::{capitalise, count_word, VariablesDialog};
@@ -178,25 +180,6 @@ pub(super) fn change_summary(base: &Dashboard, next: &Dashboard) -> String {
     }
 }
 
-/// The conflict bar's message: who saved which version when, and that nothing was lost.
-pub(super) fn conflict_text(saved: Option<&Version>, current: u32, editing: u32) -> String {
-    let who = saved.map_or_else(
-        || format!("Someone saved version {current}"),
-        |v| {
-            let author = v.author.as_deref().unwrap_or("Someone");
-            let via = v
-                .via
-                .as_ref()
-                .map_or_else(String::new, |via| format!(" through {via}"));
-            format!(
-                "{author} saved version {current}{via} at {} UTC",
-                v.created_at.format("%H:%M")
-            )
-        },
-    );
-    format!("{who} while you were editing version {editing}. Your changes are still here.")
-}
-
 /// `"{prefix}-{n}"` for the smallest `n` not already taken.
 pub(super) fn next_id<'a>(prefix: &str, taken: impl IntoIterator<Item = &'a str>) -> String {
     let taken: BTreeSet<&str> = taken.into_iter().collect();
@@ -286,11 +269,11 @@ fn variable_gaps(
         .collect()
 }
 
-/// While `dirty`, ask before the tab closes or reloads, and hold in-app link clicks in
-/// `pending` so the page can ask first. Leptos's router follows links from a click listener
+/// While `dirty`, ask before the tab closes or reloads, and hold in-app link clicks, handing
+/// the link to `on_hold` so the page can ask first. Leptos's router follows links from a click listener
 /// on the window, so a listener on the document runs first and can stop it. Back and
 /// forward can't be held this way.
-fn guard_leaving(dirty: Memo<bool>, pending: RwSignal<Option<String>>) {
+fn guard_leaving(dirty: Memo<bool>, on_hold: Callback<String>) {
     Effect::new(move |_| {
         let unload = window_event_listener(ev::beforeunload, move |e| {
             if dirty.try_get_untracked().unwrap_or(false) {
@@ -336,7 +319,7 @@ fn guard_leaving(dirty: Memo<bool>, pending: RwSignal<Option<String>>) {
                     return;
                 }
                 e.prevent_default();
-                pending.set(Some(href));
+                on_hold.run(href);
             });
         let listener: web_sys::js_sys::Function = on_click.into_js_value().unchecked_into();
         _ = document().add_event_listener_with_callback("click", &listener);
@@ -405,14 +388,6 @@ pub fn DashboardEditPage() -> impl IntoView {
     }
 }
 
-/// A save that lost to a newer version.
-#[derive(Debug, Clone)]
-struct Conflict {
-    current: u32,
-    editing: u32,
-    message: String,
-}
-
 #[component]
 fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let DashboardView {
@@ -433,10 +408,14 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let navigate = use_navigate();
     let dashboard_path = move || spectra_dashboard_path(&dashboard_id.get_value());
 
-    let saving = RwSignal::new(false);
-    let save_error = RwSignal::new(None::<String>);
-    let conflict = RwSignal::new(None::<Conflict>);
-    let copying = RwSignal::new(false);
+    let DashboardSave {
+        saving,
+        save_error,
+        conflict,
+        copying,
+        on_save,
+        save_copy,
+    } = use_dashboard_save(base, draft);
     let renaming = RwSignal::new(None::<String>);
     let preview = RwSignal::new(None::<PreviewAs>);
     let variables_open = RwSignal::new(false);
@@ -444,14 +423,16 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let text_target = RwSignal::new(None::<String>);
     let discard_open = RwSignal::new(false);
     let compare_open = RwSignal::new(false);
-    let leave_href = RwSignal::new(None::<String>);
+    // The link a held click was going to; the guard sets it and opens the dialog together.
+    let leave_href = StoredValue::new(None::<String>);
     let leave_open = RwSignal::new(false);
-    Effect::new(move |_| {
-        if leave_href.with(Option::is_some) {
+    guard_leaving(
+        dirty,
+        Callback::new(move |href: String| {
+            leave_href.set_value(Some(href));
             leave_open.set(true);
-        }
-    });
-    guard_leaving(dirty, leave_href);
+        }),
+    );
 
     let on_open_panel_editor = Callback::new(move |start: PanelEditorStart| match start {
         PanelEditorStart::Text => {
@@ -479,83 +460,6 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
         renaming.set(Some(id));
     });
 
-    let on_save = Callback::new(move |()| {
-        if saving.get_untracked() {
-            return;
-        }
-        let next = draft.get_untracked();
-        let editing = base.with_untracked(|b| b.version);
-        saving.set(true);
-        save_error.set(None);
-        leptos::task::spawn_local_scoped(async move {
-            match save_dashboard(next.clone(), editing, None).await {
-                Ok(saved) => {
-                    base.set(saved.clone());
-                    draft.set(saved);
-                    conflict.set(None);
-                }
-                Err(e) => match dashboard_error(&e) {
-                    Some(DashboardError::Conflict { current }) => {
-                        let versions = list_versions(next.id.clone()).await.unwrap_or_default();
-                        let saved = versions.iter().find(|v| v.number == current);
-                        conflict.set(Some(Conflict {
-                            current,
-                            editing,
-                            message: conflict_text(saved, current, editing),
-                        }));
-                    }
-                    _ => save_error.set(Some(format!(
-                        "Couldn't save your changes: {}",
-                        action_error_text(&e)
-                    ))),
-                },
-            }
-            saving.set(false);
-        });
-    });
-
-    let save_copy = Callback::new({
-        let navigate = navigate.clone();
-        move |()| {
-            if copying.get_untracked() {
-                return;
-            }
-            let next = draft.get_untracked();
-            let navigate = navigate.clone();
-            copying.set(true);
-            leptos::task::spawn_local_scoped(async move {
-                let result = async {
-                    let copy =
-                        duplicate_dashboard(next.id.clone(), copy_title(&next.title)).await?;
-                    let version = copy.version;
-                    let edited = Dashboard {
-                        id: copy.id,
-                        title: copy.title,
-                        owner: copy.owner,
-                        read_only: false,
-                        version,
-                        updated_at: copy.updated_at,
-                        ..next
-                    };
-                    save_dashboard(edited, version, None).await
-                }
-                .await;
-                match result {
-                    Ok(saved) => {
-                        // The original's draft is now saved in the copy.
-                        draft.set(base.get_untracked());
-                        navigate(&dashboard_edit_path(&saved.id), NavigateOptions::default());
-                    }
-                    Err(e) => save_error.set(Some(format!(
-                        "Couldn't save a copy: {}",
-                        action_error_text(&e)
-                    ))),
-                }
-                copying.set(false);
-            });
-        }
-    });
-
     let on_done = Callback::new({
         let navigate = navigate.clone();
         move |()| navigate(&dashboard_path(), NavigateOptions::default())
@@ -571,10 +475,10 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let confirm_leave = Callback::new({
         let navigate = navigate.clone();
         move |()| {
-            let href = leave_href.get_untracked();
+            let href = leave_href.get_value();
             draft.set(base.get_untracked());
             leave_open.set(false);
-            leave_href.set(None);
+            leave_href.set_value(None);
             if let Some(href) = href {
                 navigate(&href, NavigateOptions::default());
             }
@@ -582,7 +486,7 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     });
     let keep_editing = Callback::new(move |()| {
         leave_open.set(false);
-        leave_href.set(None);
+        leave_href.set_value(None);
     });
 
     // The toolbar is rebuilt only when what it shows from the draft changes.
@@ -834,238 +738,6 @@ fn PreviewPane(
     }
 }
 
-/// A small confirmation Dialog with Keep editing and one confirm button.
-#[component]
-fn ConfirmDialog(
-    open: RwSignal<bool>,
-    test_id: &'static str,
-    title: &'static str,
-    body: Signal<String>,
-    confirm: &'static str,
-    on_confirm: Callback<()>,
-    on_cancel: Callback<()>,
-) -> impl IntoView {
-    view! {
-        <Dialog open=open>
-            <DialogSurface size=DialogSize::Small>
-                <div data-testid=test_id>
-                    <DialogBody>
-                        <DialogTitle>{title}</DialogTitle>
-                        <DialogContent>
-                            <Body1>{move || body.get()}</Body1>
-                        </DialogContent>
-                        <DialogActions>
-                            <span data-testid="spectra-edit-keep-editing">
-                                <Button appearance=ButtonAppearance::Subtle on_click=Callback::new(move |_| on_cancel.run(()))>
-                                    "Keep editing"
-                                </Button>
-                            </span>
-                            <span data-testid="spectra-edit-confirm">
-                                <Button appearance=ButtonAppearance::Primary on_click=Callback::new(move |_| on_confirm.run(()))>
-                                    {confirm}
-                                </Button>
-                            </span>
-                        </DialogActions>
-                    </DialogBody>
-                </div>
-            </DialogSurface>
-        </Dialog>
-    }
-}
-
-/// Compare versions: what you changed since the version you started from, and what the
-/// newer saved version changed.
-#[component]
-fn CompareDialog(
-    open: RwSignal<bool>,
-    base: RwSignal<Dashboard>,
-    draft: RwSignal<Dashboard>,
-    conflict: RwSignal<Option<Conflict>>,
-) -> impl IntoView {
-    let theirs = RwSignal::new(None::<Result<Dashboard, String>>);
-    Effect::new(move |_| {
-        if !open.get() {
-            return;
-        }
-        let Some(c) = conflict.get_untracked() else {
-            return;
-        };
-        theirs.set(None);
-        let id = base.with_untracked(|b| b.id.clone());
-        leptos::task::spawn_local_scoped(async move {
-            let result = get_dashboard(id, Some(c.current))
-                .await
-                .map_err(|e| action_error_text(&e));
-            theirs.set(Some(result));
-        });
-    });
-    let lines = |parts: Vec<String>| {
-        if parts.is_empty() {
-            view! { <Caption1>"Nothing."</Caption1> }.into_any()
-        } else {
-            view! {
-                <List>
-                    {parts.into_iter().map(|p| view! { <ListItem>{capitalise(&p)}</ListItem> }).collect_view()}
-                </List>
-            }
-            .into_any()
-        }
-    };
-    view! {
-        <Dialog open=open>
-            <DialogSurface>
-                <div data-testid="spectra-edit-compare-dialog">
-                    <DialogBody>
-                        <DialogTitle>"Compare versions"</DialogTitle>
-                        <DialogContent>
-                            {move || {
-                                let Some(c) = conflict.get() else {
-                                    return ().into_any();
-                                };
-                                let mine = base.with(|b| draft.with(|d| change_parts(b, d)));
-                                view! {
-                                    <Flex vertical=true gap=SpacingSize::Size120.flex_gap()>
-                                        <div data-testid="spectra-edit-compare-mine">
-                                            <Subtitle2>{format!("Your changes since version {}", c.editing)}</Subtitle2>
-                                            {lines(mine)}
-                                        </div>
-                                        <div data-testid="spectra-edit-compare-theirs">
-                                            <Subtitle2>{format!("What version {} changed", c.current)}</Subtitle2>
-                                            {move || match theirs.get() {
-                                                None => view! {
-                                                    <Skeleton>
-                                                        <SkeletonItem width="16rem".to_string() height="1rem".to_string() />
-                                                    </Skeleton>
-                                                }
-                                                .into_any(),
-                                                Some(Ok(newer)) => lines(base.with(|b| change_parts(b, &newer))),
-                                                Some(Err(message)) => view! {
-                                                    <MessageBar intent=MessageBarIntent::Error>
-                                                        {format!("Couldn't load version {}: {message}", c.current)}
-                                                    </MessageBar>
-                                                }
-                                                .into_any(),
-                                            }}
-                                        </div>
-                                    </Flex>
-                                }
-                                .into_any()
-                            }}
-                        </DialogContent>
-                        <DialogActions>
-                            <Button on_click=Callback::new(move |_| open.set(false))>"Close"</Button>
-                        </DialogActions>
-                    </DialogBody>
-                </div>
-            </DialogSurface>
-        </Dialog>
-    }
-}
-
-/// Title and Markdown for a text panel. With `target` set it edits that panel, otherwise
-/// Apply adds a new one.
-#[component]
-fn TextPanelDialog(
-    open: RwSignal<bool>,
-    target: RwSignal<Option<String>>,
-    draft: RwSignal<Dashboard>,
-) -> impl IntoView {
-    let title = RwSignal::new(String::new());
-    let markdown = RwSignal::new(String::new());
-    Effect::new(move |_| {
-        if !open.get() {
-            return;
-        }
-        let existing = target.get_untracked().and_then(|id| {
-            draft.with_untracked(|d| {
-                d.sections
-                    .iter()
-                    .flat_map(|s| &s.panels)
-                    .find(|p| p.id == id)
-                    .and_then(|p| match &p.source {
-                        PanelSource::Text { markdown } => Some((p.title.clone(), markdown.clone())),
-                        _ => None,
-                    })
-            })
-        });
-        let (t, m) = existing.unwrap_or_default();
-        title.set(t);
-        markdown.set(m);
-    });
-    let heading = move || {
-        if target.with(Option::is_some) {
-            "Edit text"
-        } else {
-            "Add text"
-        }
-    };
-    let apply = Callback::new(move |_| {
-        let (t, m) = (
-            title.get_untracked().trim().to_string(),
-            markdown.get_untracked(),
-        );
-        if m.trim().is_empty() {
-            return;
-        }
-        match target.get_untracked() {
-            Some(id) => draft.update(|d| {
-                if let Some(panel) = d
-                    .sections
-                    .iter_mut()
-                    .flat_map(|s| s.panels.iter_mut())
-                    .find(|p| p.id == id)
-                {
-                    panel.title = t;
-                    panel.source = PanelSource::Text { markdown: m };
-                }
-            }),
-            None => draft.update(|d| {
-                add_text_panel(d, t, m);
-            }),
-        }
-        open.set(false);
-    });
-    view! {
-        <Dialog open=open>
-            <DialogSurface>
-                <div data-testid="spectra-edit-text-dialog">
-                    <DialogBody>
-                        <DialogTitle>{heading}</DialogTitle>
-                        <DialogContent>
-                            <Flex vertical=true gap=SpacingSize::Size120.flex_gap()>
-                                <Field label="Title">
-                                    <div data-testid="spectra-edit-text-title">
-                                        <Input bind=InputBind::new(title) />
-                                    </div>
-                                </Field>
-                                <Field label="Text (Markdown)" required=true>
-                                    <div data-testid="spectra-edit-text-markdown">
-                                        <Textarea bind=TextareaBind::new(markdown) />
-                                    </div>
-                                </Field>
-                            </Flex>
-                        </DialogContent>
-                        <DialogActions>
-                            <Button appearance=ButtonAppearance::Subtle on_click=Callback::new(move |_| open.set(false))>
-                                "Cancel"
-                            </Button>
-                            <span data-testid="spectra-edit-text-apply">
-                                <Button
-                                    appearance=ButtonAppearance::Primary
-                                    disabled=Signal::derive(move || markdown.with(|m| m.trim().is_empty()))
-                                    on_click=apply
-                                >
-                                    "Apply"
-                                </Button>
-                            </span>
-                        </DialogActions>
-                    </DialogBody>
-                </div>
-            </DialogSurface>
-        </Dialog>
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
@@ -1164,31 +836,6 @@ mod tests {
             ..base.clone()
         };
         assert!(!has_changes(&base, &saved));
-    }
-
-    #[test]
-    fn conflict_text_names_the_agent_and_time() {
-        let v = Version {
-            number: 9,
-            author: Some("release-bot".into()),
-            via: Some("MCP".into()),
-            created_at: Utc.with_ymd_and_hms(2026, 11, 3, 9, 30, 0).unwrap(),
-            summary: String::new(),
-        };
-        assert_eq!(
-            conflict_text(Some(&v), 9, 8),
-            "release-bot saved version 9 through MCP at 09:30 UTC while you were editing version 8. Your changes are still here."
-        );
-        let person = Version {
-            via: None,
-            author: Some("rosa".into()),
-            ..v
-        };
-        assert!(conflict_text(Some(&person), 9, 8).starts_with("rosa saved version 9 at 09:30 UTC"));
-        assert_eq!(
-            conflict_text(None, 9, 8),
-            "Someone saved version 9 while you were editing version 8. Your changes are still here."
-        );
     }
 
     #[test]
