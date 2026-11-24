@@ -45,6 +45,22 @@ function handle(page: Page, panelId: string) {
   return cell(page, panelId).getByTestId("spectra-edit-panel-handle").getByRole("button");
 }
 
+/** Click Save and wait for `version`; a save error shows up as the received value. */
+async function saveAndExpectVersion(page: Page, version: number) {
+  await page.getByTestId("spectra-edit-save").getByRole("button").click();
+  const error = page.getByTestId("spectra-edit-save-error");
+  const shown = page.getByTestId("spectra-edit-version");
+  await expect
+    .poll(
+      async () =>
+        (await error.count()) > 0
+          ? `save error: ${await error.textContent()}`
+          : await shown.getAttribute("data-version"),
+      { timeout: 60_000 },
+    )
+    .toBe(String(version));
+}
+
 function bar(page: Page) {
   return page.getByTestId("spectra-edit-bar");
 }
@@ -81,12 +97,7 @@ test.describe("pw-spectra-dashboards-edit", () => {
     await expect(cell(page, "events")).toHaveAttribute("data-span", "5");
     await expect(page.getByTestId("spectra-edit-unsaved")).toHaveText("Unsaved changes");
 
-    await page.getByTestId("spectra-edit-save").getByRole("button").click();
-    await expect(page.getByTestId("spectra-edit-version")).toHaveAttribute(
-      "data-version",
-      String(version + 1),
-      { timeout: 60_000 },
-    );
+    await saveAndExpectVersion(page, version + 1);
     await expect(page.getByTestId("spectra-edit-unsaved")).toHaveCount(0);
     await expect(page.getByTestId("spectra-edit-saved")).toBeVisible();
     await expect(page.getByTestId("spectra-dashboard-edit-page")).toHaveAttribute(
@@ -120,12 +131,7 @@ test.describe("pw-spectra-dashboards-edit", () => {
       await openEdit(second, id);
       await handle(second, "notes").press("ArrowDown");
       await expect(cell(second, "notes")).toHaveAttribute("data-row", "1");
-      await second.getByTestId("spectra-edit-save").getByRole("button").click();
-      await expect(second.getByTestId("spectra-edit-version")).toHaveAttribute(
-        "data-version",
-        String(version + 1),
-        { timeout: 60_000 },
-      );
+      await saveAndExpectVersion(second, version + 1);
 
       await page.getByTestId("spectra-edit-save").getByRole("button").click();
       const conflict = page.getByTestId("spectra-edit-conflict");
@@ -244,12 +250,7 @@ test.describe("pw-spectra-dashboards-edit", () => {
     await expect(done).toBeEnabled();
     await done.click();
 
-    await page.getByTestId("spectra-edit-save").getByRole("button").click();
-    await expect(page.getByTestId("spectra-edit-version")).toHaveAttribute(
-      "data-version",
-      String(version + 1),
-      { timeout: 60_000 },
-    );
+    await saveAndExpectVersion(page, version + 1);
     await expect(page.getByTestId("spectra-dashboard-variable-severity")).toBeVisible();
   });
 
@@ -294,12 +295,7 @@ test.describe("pw-spectra-dashboards-edit", () => {
     );
     await expect(list.getByTestId("spectra-edit-row-events")).toHaveAttribute("data-index", "1");
 
-    await page.getByTestId("spectra-edit-save").getByRole("button").click();
-    await expect(page.getByTestId("spectra-edit-version")).toHaveAttribute(
-      "data-version",
-      String(version + 1),
-      { timeout: 60_000 },
-    );
+    await saveAndExpectVersion(page, version + 1);
   });
 
   test("pw-spectra-dashboards-edit-builtin-not-found-sad", async ({ page }) => {

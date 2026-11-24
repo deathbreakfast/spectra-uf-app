@@ -9,6 +9,7 @@
 //! [`save_dashboard`] returns [`DashboardError::Conflict`].
 
 use leptos::prelude::*;
+use leptos::server_fn::codec::Json;
 // `DashboardAccess` stays path-qualified: `#[server] fn dashboard_access` generates a
 // struct with that name in this module.
 use spectra_backend::dashboards::{
@@ -105,7 +106,10 @@ pub async fn create_dashboard(
 /// Save a dashboard as a new version.
 ///
 /// Fails with [`DashboardError::Conflict`] when someone saved after `expected_version`.
+///
+/// Sent as JSON: the default URL encoding drops empty lists inside the dashboard's panels.
 #[uf_product_macros::server(permission = "QueryTable")]
+#[server(input = Json)]
 pub async fn save_dashboard(
     /// The edited dashboard.
     dashboard: Dashboard,
