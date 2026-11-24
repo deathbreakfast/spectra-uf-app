@@ -20,6 +20,30 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 spectra-core = { workspace = true }
 
+# Saved-dashboard store (`ssr`). Gauge's `ssr` turns on `leptos/ssr`, so none of this may
+# reach the featureless or hydrate (wasm) builds.
+anyhow = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+gauge = { workspace = true, optional = true }
+lepton-identity = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+valence = { workspace = true, optional = true }
+
+[build-dependencies]
+valence-codegen = { workspace = true }
+
+[features]
+default = []
+ssr = [
+    "dep:anyhow",
+    "dep:async-trait",
+    "dep:gauge",
+    "gauge/ssr",
+    "dep:lepton-identity",
+    "dep:uuid",
+    "dep:valence",
+]
+
 [dev-dependencies]
 async-trait = { workspace = true }
 spectra = { workspace = true, features = ["mem"] }

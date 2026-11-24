@@ -3,4 +3,6 @@
 # same ignore already used in higgs/deny.toml elsewhere in the fleet).
 # libsqlite3-sys 0.30 via uf-valence -> sqlx 0.8.6; the patched 0.39 needs a
 # sqlx bump upstream.
-ignore = ["RUSTSEC-2023-0071", "RUSTSEC-2026-0459"]
+# chrono / chrono-tz unmaintained, no fixed release; temporary until the stack moves off
+# chrono (security:RUSTSEC-2026-0543).
+ignore = ["RUSTSEC-2023-0071", "RUSTSEC-2026-0459", "RUSTSEC-2026-0543", "RUSTSEC-2026-0555"]
