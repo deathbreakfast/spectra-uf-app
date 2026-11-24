@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use spectra_backend::dashboards::{DashboardAccess, Principal};
 use spectra_backend::spectra_dashboard_path;
 
-use super::{parse_principal_key, principal_key};
+use super::{action_error_text, parse_principal_key, principal_key};
 use crate::server::share_dashboard;
 
 /// Gauge's search source for people.
@@ -264,13 +264,18 @@ fn OwnerSharing(open: RwSignal<bool>, state: ShareState) -> impl IntoView {
         let load = open.get();
         async move {
             if load {
-                share_directory(None).await.unwrap_or_default()
+                share_directory(None).await.map_err(|e| {
+                    log::warn!("Spectra dashboard: loading people and groups failed: {e}");
+                    action_error_text(&e)
+                })
             } else {
-                Vec::new()
+                Ok(Vec::new())
             }
         }
     });
-    let candidates = Signal::derive(move || directory.get().unwrap_or_default());
+    let candidates =
+        Signal::derive(move || directory.get().and_then(Result::ok).unwrap_or_default());
+    let directory_error = move || directory.get().and_then(Result::err);
     let labels = Memo::new(move |_| candidates.with(|c| label_map(c)));
     let error = state.error;
 
@@ -285,6 +290,15 @@ fn OwnerSharing(open: RwSignal<bool>, state: ShareState) -> impl IntoView {
                 <PrincipalPicker selected=state.viewers candidates=candidates labels=labels />
             </div>
         </Field>
+        {move || directory_error().map(|message| view! {
+            <div data-testid="spectra-share-directory-error">
+                <MessageBar intent=MessageBarIntent::Warning>
+                    <MessageBarBody>
+                        {format!("Couldn't load people and groups: {message} Close Share and open it again to retry.")}
+                    </MessageBarBody>
+                </MessageBar>
+            </div>
+        })}
         <div data-testid="spectra-share-info">
             <MessageBar intent=MessageBarIntent::Info>
                 <MessageBarBody>

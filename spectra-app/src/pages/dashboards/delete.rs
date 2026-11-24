@@ -3,7 +3,7 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use leptos_router::NavigateOptions;
-use orbital::components::SpacingSize;
+use orbital::components::{Caption1, SpacingSize};
 use orbital::primitives::{
     Body1, Button, ButtonAppearance, Dialog, DialogActions, DialogBody, DialogContent,
     DialogSurface, DialogTitle, Field, Flex, Input, InputBind, MessageBar, MessageBarIntent,
@@ -40,15 +40,18 @@ pub(super) fn DeleteDialog(
         let load = open.get() && access.with(|a| !a.editors.is_empty() || !a.viewers.is_empty());
         async move {
             if load {
-                share_directory(None).await.unwrap_or_default()
+                share_directory(None).await.map_err(|e| {
+                    log::warn!("Spectra dashboard: loading names for Delete failed: {e}");
+                })
             } else {
-                Vec::new()
+                Ok(Vec::new())
             }
         }
     });
     let access_text = move || {
         let labels = directory
             .get()
+            .and_then(Result::ok)
             .map_or_else(std::collections::HashMap::new, |d| label_map(&d));
         let names: Vec<String> = access.with(|a| {
             a.editors
@@ -103,6 +106,11 @@ pub(super) fn DeleteDialog(
                                 <span data-testid="spectra-delete-access">
                                     <Body1>{access_text}</Body1>
                                 </span>
+                                {move || matches!(directory.get(), Some(Err(()))).then(|| view! {
+                                    <span data-testid="spectra-delete-names-error">
+                                        <Caption1>"Couldn't load names, so people and groups show by id."</Caption1>
+                                    </span>
+                                })}
                                 <Field label="Type the dashboard's name to confirm" required=true>
                                     <div data-testid="spectra-delete-name">
                                         <Input bind=InputBind::new(typed) />

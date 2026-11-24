@@ -208,19 +208,25 @@ pub(super) fn RestoreDialog(
                 if wanted {
                     list_versions(id)
                         .await
-                        .ok()
-                        .and_then(|v| v.into_iter().next())
+                        .map(|v| v.into_iter().next())
+                        .map_err(|e| {
+                            log::warn!(
+                                "Spectra dashboard: loading versions for Restore failed: {e}"
+                            );
+                            action_error_text(&e)
+                        })
                 } else {
-                    None
+                    Ok(None)
                 }
             }
         }
     });
     let text = move || {
         let n = target.get()?;
-        let newest = newest.get().flatten()?;
+        let newest = newest.get()?.ok().flatten()?;
         Some(restore_text(n, &newest))
     };
+    let load_error = move || newest.get().and_then(Result::err);
 
     let restore = Action::new(move |input: &(String, u32)| {
         let (id, n) = input.clone();
@@ -261,6 +267,13 @@ pub(super) fn RestoreDialog(
                                 <span data-testid="spectra-restore-text">
                                     <Body1>{text}</Body1>
                                 </span>
+                                {move || load_error().map(|message| view! {
+                                    <div data-testid="spectra-restore-load-error">
+                                        <MessageBar intent=MessageBarIntent::Warning>
+                                            <MessageBarBody>{format!("Couldn't load the history: {message}")}</MessageBarBody>
+                                        </MessageBar>
+                                    </div>
+                                })}
                                 {move || error.get().map(|message| view! {
                                     <div data-testid="spectra-restore-error">
                                         <MessageBar intent=MessageBarIntent::Error>{message}</MessageBar>
