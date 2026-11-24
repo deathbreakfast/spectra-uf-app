@@ -48,6 +48,9 @@ async function openHistory(page: Page) {
 }
 
 test.describe("pw-spectra-dashboards-share", () => {
+  // Each test seeds, switches users or opens several overlays; the first load compiles WASM.
+  test.describe.configure({ timeout: 240_000 });
+
   test("pw-spectra-dashboards-share-group-viewer-opens-happy", async ({ page }) => {
     const id = await freshDashboard(page);
     await openDashboard(page, id);
