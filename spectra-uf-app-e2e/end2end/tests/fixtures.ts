@@ -6,7 +6,8 @@ export type SeedAuthKind =
   | "admin_noperms"
   | "admin_partial"
   | "outsider"
-  | "unverified";
+  | "unverified"
+  | "teammate";
 
 export type SeedFixtures = {
   event_table: string;
@@ -17,6 +18,8 @@ export type SeedFixtures = {
   seed_message: string;
   seed_metric_value: number;
   checkout_dashboard_id: string;
+  /** Set when the seed asked for `freshDashboard`. */
+  fresh_dashboard_id: string | null;
 };
 
 export type SeedResponse = {
@@ -207,7 +210,12 @@ const SPECTRA_HELP_STEPS_SEEN = [
 export async function seedAuth(
   page: Page,
   auth: SeedAuthKind,
-  opts?: { skipData?: boolean; help_tour?: boolean; bulkEvents?: number },
+  opts?: {
+    skipData?: boolean;
+    help_tour?: boolean;
+    bulkEvents?: number;
+    freshDashboard?: boolean;
+  },
 ) {
   const helpTour = opts?.help_tour ?? false;
   await page.addInitScript(
@@ -229,7 +237,12 @@ export async function seedAuth(
   );
 
   const res = await page.request.post("/api/test/seed-data", {
-    data: { auth, skip_data: opts?.skipData ?? false, bulk_events: opts?.bulkEvents ?? 0 },
+    data: {
+      auth,
+      skip_data: opts?.skipData ?? false,
+      bulk_events: opts?.bulkEvents ?? 0,
+      fresh_dashboard: opts?.freshDashboard ?? false,
+    },
   });
   expect(res.ok()).toBeTruthy();
   return res.json() as Promise<SeedResponse>;

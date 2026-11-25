@@ -51,8 +51,20 @@ pub(super) fn DashboardToolbar(
     state: Memo<ViewState>,
     /// Called with the next state; the page writes it to the URL.
     on_change: Callback<ViewState>,
-    /// Duplicate the dashboard and open the copy.
+    /// Open the Duplicate dialog.
     on_duplicate: Callback<()>,
+    /// Open the Share dialog. Left out on the edit page.
+    #[prop(optional)]
+    on_share: Option<Callback<()>>,
+    /// Open the version history. Left out on the edit page.
+    #[prop(optional)]
+    on_history: Option<Callback<()>>,
+    /// Open the Delete dialog. Left out on the edit page.
+    #[prop(optional)]
+    on_delete: Option<Callback<()>>,
+    /// True while an older version is shown, which can't be edited, shared or deleted.
+    #[prop(optional)]
+    old_version: bool,
     /// On the edit page: Preview as viewer's choice goes here, and Edit, Share, Duplicate
     /// and the More menu are left out.
     #[prop(optional)]
@@ -114,11 +126,18 @@ pub(super) fn DashboardToolbar(
     });
 
     let variables = dashboard.variables;
+    let builtin = dashboard.read_only;
     let editing = on_preview.is_some();
-    let can_edit = access.can_edit && !editing;
-    let can_share = access.can_share && !editing;
+    let can_edit = access.can_edit && !editing && !old_version;
+    let can_share = !builtin && !editing && !old_version && on_share.is_some();
+    let can_delete = access.can_delete && !old_version && on_delete.is_some();
     let edit_href = dashboard_edit_path(&dashboard.id);
     let navigate = use_navigate();
+    let run = |cb: Option<Callback<()>>| {
+        if let Some(cb) = cb {
+            cb.run(());
+        }
+    };
 
     view! {
         <div data-testid="spectra-dashboard-toolbar">
@@ -216,11 +235,14 @@ pub(super) fn DashboardToolbar(
                                 </span>
                             })}
                             {can_share.then(|| view! {
-                                <Tooltip content="Sharing is coming soon".to_string()>
-                                    <span data-testid="spectra-dashboard-share">
-                                        <Button disabled_focusable=true>"Share"</Button>
-                                    </span>
-                                </Tooltip>
+                                <span data-testid="spectra-dashboard-share">
+                                    <Button
+                                        icon=icondata::AiShareAltOutlined
+                                        on_click=Callback::new(move |_| run(on_share))
+                                    >
+                                        "Share"
+                                    </Button>
+                                </span>
                             })}
                             {on_preview.map(|on_preview| view! {
                                 <PreviewAsViewerMenu on_preview=on_preview grants=preview_grants.clone() />
@@ -235,10 +257,11 @@ pub(super) fn DashboardToolbar(
                             {(!editing).then(|| view! {
                             <Menu
                                 data_testid="spectra-dashboard-more"
-                                on_select=move |action: &str| {
-                                    if action == "duplicate" {
-                                        on_duplicate.run(());
-                                    }
+                                on_select=move |action: &str| match action {
+                                    "duplicate" => on_duplicate.run(()),
+                                    "history" => run(on_history),
+                                    "delete" => run(on_delete),
+                                    _ => {}
                                 }
                             >
                                 <MenuTrigger slot>
@@ -249,8 +272,12 @@ pub(super) fn DashboardToolbar(
                                     />
                                 </MenuTrigger>
                                 <MenuItem value="duplicate">"Duplicate"</MenuItem>
-                                <MenuItem value="history" disabled=true>"Version history"</MenuItem>
-                                <MenuItem value="delete" disabled=true>"Delete"</MenuItem>
+                                {(!builtin && on_history.is_some()).then(|| view! {
+                                    <MenuItem value="history">"Version history"</MenuItem>
+                                })}
+                                {can_delete.then(|| view! {
+                                    <MenuItem value="delete">"Delete"</MenuItem>
+                                })}
                             </Menu>
                             })}
                         </Flex>

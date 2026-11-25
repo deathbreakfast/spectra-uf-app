@@ -27,8 +27,9 @@ async function freshCopy(page: Page): Promise<{ id: string; version: number }> {
   });
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Duplicate" }).click();
+  await page.getByTestId("spectra-duplicate-submit").getByRole("button").click();
   await expect(page.getByTestId("spectra-dashboard-title")).toHaveText(
-    "Copy of Checkout health",
+    "Checkout health (copy)",
     { timeout: 60_000 },
   );
   const id = new URL(page.url()).pathname.split("/").pop()!;
@@ -76,7 +77,7 @@ test.describe("pw-spectra-dashboards-edit", () => {
     });
     await expect(bar(page)).toBeVisible({ timeout: 60_000 });
     const crumbs = page.getByTestId("spectra-breadcrumbs");
-    await expect(crumbs).toContainText("Copy of Checkout health");
+    await expect(crumbs).toContainText("Checkout health (copy)");
     await expect(crumbs).toContainText("Edit");
     await expect(page.getByTestId("spectra-edit-version")).toHaveAttribute(
       "data-version",

@@ -31,6 +31,10 @@ pub struct SeedRequest {
     /// the default one-hour explore window. Capped at [`MAX_BULK_EVENTS`].
     #[serde(default)]
     pub bulk_events: u32,
+    /// When `true`, also create a new admin-owned dashboard with four saved versions (one
+    /// saved through MCP) and return its id as `fresh_dashboard_id`.
+    #[serde(default)]
+    pub fresh_dashboard: bool,
 }
 
 /// Upper bound on [`SeedRequest::bulk_events`].
@@ -410,6 +414,49 @@ async fn checkout_dashboard_id() -> Result<String, StatusCode> {
         .cloned()
 }
 
+/// Title of each dashboard made by [`SeedRequest::fresh_dashboard`].
+pub const FRESH_DASHBOARD_TITLE: &str = "Release checks";
+
+/// A new admin-owned dashboard with versions 1 to 4: created, two saves from the app, and
+/// one save an agent made through MCP. Each call makes its own, so specs never share one.
+async fn fresh_dashboard_id() -> Result<String, StatusCode> {
+    let admin = e2e_admin_valence();
+    let fail = |err: DashboardError| {
+        log::error!("e2e seed: fresh dashboard failed: {err}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    };
+    let mut dashboard = store::create(
+        &admin,
+        FRESH_DASHBOARD_TITLE,
+        "Checks to run before each release.",
+        None,
+    )
+    .await
+    .map_err(fail)?;
+    for (summary, description, via) in [
+        ("Added the overview", "Version two of the checks.", None),
+        ("Renamed the sections", "Version three of the checks.", None),
+        (
+            "Tightened the description",
+            "Version four of the checks.",
+            Some("MCP"),
+        ),
+    ] {
+        dashboard.description = description.into();
+        let expected = dashboard.version;
+        dashboard = store::save(
+            &admin,
+            &dashboard,
+            expected,
+            Some(summary),
+            via.map(str::to_string),
+        )
+        .await
+        .map_err(fail)?;
+    }
+    Ok(dashboard.id)
+}
+
 pub async fn seed_data(
     session: tower_sessions::Session,
     Json(body): Json<SeedRequest>,
@@ -421,6 +468,11 @@ pub async fn seed_data(
 
     seed_spectra_rows(kind, body.skip_data, body.bulk_events).await?;
     let checkout_dashboard_id = checkout_dashboard_id().await?;
+    let fresh_dashboard_id = if body.fresh_dashboard {
+        Some(fresh_dashboard_id().await?)
+    } else {
+        None
+    };
 
     let fixtures = e2e_fixtures();
     Ok(Json(serde_json::json!({
@@ -435,6 +487,7 @@ pub async fn seed_data(
             "seed_message": "Playwright seed row",
             "seed_metric_value": 42.0,
             "checkout_dashboard_id": checkout_dashboard_id,
+            "fresh_dashboard_id": fresh_dashboard_id,
         }
     })))
 }
