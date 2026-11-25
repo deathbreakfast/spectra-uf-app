@@ -100,6 +100,30 @@ fn SpectraBreadcrumbTrail() -> impl IntoView {
                         </BreadcrumbItem>
                     }.into_any());
                 }
+                if let Some(id) = path
+                    .strip_prefix("/spectra/dashboards/")
+                    .and_then(|rest| rest.strip_suffix("/edit"))
+                {
+                    let title = crumb.and_then(|c| c.0.get());
+                    let dashboard_href = spectra_backend::spectra_dashboard_path(id);
+                    return Some(view! {
+                        <BreadcrumbItem>
+                            <Link href="/spectra/dashboards">
+                                <BreadcrumbButton>"Dashboards"</BreadcrumbButton>
+                            </Link>
+                        </BreadcrumbItem>
+                        {title.map(|title| view! {
+                            <BreadcrumbItem>
+                                <Link href=dashboard_href>
+                                    <BreadcrumbButton>{title}</BreadcrumbButton>
+                                </Link>
+                            </BreadcrumbItem>
+                            <BreadcrumbItem>
+                                <BreadcrumbButton current=true>"Edit"</BreadcrumbButton>
+                            </BreadcrumbItem>
+                        })}
+                    }.into_any());
+                }
                 if path.starts_with("/spectra/dashboards/") {
                     let title = crumb.and_then(|c| c.0.get());
                     return Some(view! {

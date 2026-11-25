@@ -31,6 +31,10 @@ pub struct DashboardView {
     pub request_access_href: Option<String>,
     /// For each panel id, the variables whose field the panel's source doesn't have.
     pub variable_gaps: BTreeMap<String, Vec<String>>,
+    /// Field names of each registered source the dashboard's panels read, by source name.
+    /// The edit page's Variables dialog offers these fields and counts the panels that
+    /// ignore a variable. A source the binary doesn't know is left out.
+    pub source_fields: BTreeMap<String, Vec<String>>,
 }
 
 /// One panel's query, as the page sends it.
@@ -151,15 +155,16 @@ pub async fn get_dashboard_view(
     };
 
     let mut variable_gaps = BTreeMap::new();
+    let mut fields_by_source = BTreeMap::new();
     for panel in dashboard.sections.iter().flat_map(|s| &s.panels) {
         let Some(source) = panel_source_name(panel) else {
             continue;
         };
-        let gaps = missing_variable_fields(
-            panel,
-            &dashboard.variables,
-            source_fields(source).as_deref(),
-        );
+        let fields = source_fields(source);
+        let gaps = missing_variable_fields(panel, &dashboard.variables, fields.as_deref());
+        if let Some(fields) = fields {
+            fields_by_source.insert(source.to_string(), fields);
+        }
         if !gaps.is_empty() {
             variable_gaps.insert(panel.id.clone(), gaps);
         }
@@ -172,6 +177,7 @@ pub async fn get_dashboard_view(
         missing_permissions,
         request_access_href,
         variable_gaps,
+        source_fields: fields_by_source,
     })
 }
 
