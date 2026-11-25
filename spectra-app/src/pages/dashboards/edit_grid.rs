@@ -2,6 +2,9 @@
 //! header, resizes from its bottom-right corner and snaps to whole columns and rows. On a
 //! focused handle the arrow keys move the panel and Shift with an arrow key resizes it.
 //!
+//! A section drags by its handle too: release it over another section to move it there.
+//! Moving a panel into another section is not built yet.
+//!
 //! Below `Md` there is no drag or resize: [`PhoneSectionList`] shows each panel as a List row
 //! with Move up, Move down, Edit and Remove.
 //!
@@ -23,6 +26,7 @@ use spectra_backend::dashboards::view::panel_caption;
 use spectra_backend::dashboards::{
     Dashboard, Layout, Panel, PanelSource, Section, DASHBOARD_GRID_COLUMNS,
 };
+use wasm_bindgen::{closure::Closure, JsCast};
 
 use super::edit::PanelEditorStart;
 
@@ -186,6 +190,56 @@ pub(super) fn move_section(sections: &mut [Section], id: &str, up: bool) -> bool
         sections.swap(pos, other);
         true
     })
+}
+
+/// Move section `id` so that `index` other sections come before it. Returns `false` when
+/// nothing moves: unknown id, or it is already there.
+pub(super) fn move_section_to(sections: &mut Vec<Section>, id: &str, index: usize) -> bool {
+    let Some(pos) = sections.iter().position(|s| s.id == id) else {
+        return false;
+    };
+    let index = index.min(sections.len() - 1);
+    if pos == index {
+        return false;
+    }
+    let section = sections.remove(pos);
+    sections.insert(index, section);
+    true
+}
+
+/// How many other sections' headers sit above pointer height `y`: the index a dragged
+/// section lands at.
+fn drop_index(section_id: &str, y: f64) -> usize {
+    let Ok(headers) = document().query_selector_all("[data-section-id]") else {
+        return 0;
+    };
+    (0..headers.length())
+        .filter_map(|i| headers.item(i))
+        .filter_map(|n| n.dyn_into::<web_sys::Element>().ok())
+        .filter(|el| el.get_attribute("data-section-id").as_deref() != Some(section_id))
+        .filter(|el| {
+            let r = el.get_bounding_client_rect();
+            r.top() + r.height() / 2.0 < y
+        })
+        .count()
+}
+
+/// Swallow the click that follows a drag release, so it doesn't open the handle's menu.
+fn swallow_next_click() {
+    let doc = document();
+    let on_click = Closure::<dyn Fn(web_sys::Event)>::new(|e: web_sys::Event| {
+        e.stop_propagation();
+        e.prevent_default();
+    });
+    let listener: web_sys::js_sys::Function = on_click.into_js_value().unchecked_into();
+    _ = doc.add_event_listener_with_callback_and_bool("click", &listener, true);
+    // No click follows a release away from the handle; don't hold the next real one.
+    set_timeout(
+        move || {
+            _ = document().remove_event_listener_with_callback_and_bool("click", &listener, true);
+        },
+        std::time::Duration::from_millis(50),
+    );
 }
 
 /// The first row below every panel in `panels`.
@@ -632,10 +686,63 @@ pub(super) fn EditSectionHeader(
     };
     let test_id = format!("spectra-edit-section-{section_id}");
 
+    // A drag starts after the pointer moves a few pixels, so a plain click still opens the menu.
+    let press = StoredValue::new(None::<f64>);
+    let dragging = RwSignal::new(false);
+    let drop_at = RwSignal::new(0usize);
+    let on_move = window_event_listener(ev::pointermove, move |ev| {
+        let Some(start_y) = press.try_get_value().flatten() else {
+            return;
+        };
+        let y = f64::from(ev.client_y());
+        if !dragging.get_untracked() && (y - start_y).abs() > 4.0 {
+            dragging.set(true);
+        }
+        if dragging.get_untracked() {
+            drop_at.set(drop_index(&sid.get_value(), y));
+        }
+    });
+    let on_up = window_event_listener(ev::pointerup, move |ev| {
+        if press.try_get_value().flatten().is_none() {
+            return;
+        }
+        press.set_value(None);
+        if dragging.get_untracked() {
+            dragging.set(false);
+            let to = drop_index(&sid.get_value(), f64::from(ev.client_y()));
+            draft.update(|d| {
+                move_section_to(&mut d.sections, &sid.get_value(), to);
+            });
+            swallow_next_click();
+        }
+    });
+    on_cleanup(move || {
+        on_move.remove();
+        on_up.remove();
+    });
+
     view! {
-        <div data-testid=test_id>
+        <div
+            data-testid=test_id
+            data-section-id=section_id
+            data-dragging=move || dragging.get().to_string()
+            style=move || if dragging.get() {
+                "outline: 2px dashed var(--orb-color-brand-stroke);"
+            } else {
+                ""
+            }
+        >
             <Flex gap=SpacingSize::Size40.flex_gap() align=FlexAlign::Center>
-                <span data-testid="spectra-edit-section-handle" on:keydown=on_handle_key>
+                <span
+                    data-testid="spectra-edit-section-handle"
+                    style="touch-action: none; cursor: grab;"
+                    on:keydown=on_handle_key
+                    on:pointerdown=move |ev| {
+                        if ev.button() == 0 {
+                            press.set_value(Some(f64::from(ev.client_y())));
+                        }
+                    }
+                >
                     <Menu
                         on_select=move |action: &str| match action {
                             "up" => reorder(true),
@@ -650,7 +757,7 @@ pub(super) fn EditSectionHeader(
                                 size=ButtonSize::Small
                                 icon=icondata::AiHolderOutlined
                                 attr:aria-label=move || format!(
-                                    "Reorder {}. Arrow up and down move the section.",
+                                    "Reorder {}. Drag it, or press arrow up or down.",
                                     shown_title()
                                 )
                             />
@@ -686,6 +793,11 @@ pub(super) fn EditSectionHeader(
                                 "Rename"
                             </Button>
                         </span>
+                        <Show when=move || dragging.get()>
+                            <Caption1>
+                                {move || format!("Drop to move to position {}", drop_at.get() + 1)}
+                            </Caption1>
+                        </Show>
                     }
                 >
                     <span data-testid="spectra-edit-section-name" on:keydown=on_keydown>
@@ -972,6 +1084,26 @@ mod tests {
         assert!(!move_section(&mut sections, "a", true));
         let order: Vec<_> = sections.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(order, ["a", "c", "b"]);
+    }
+
+    #[test]
+    fn sections_move_to_an_index() {
+        let section = |id: &str| Section {
+            id: id.into(),
+            title: id.into(),
+            collapsed: false,
+            panels: Vec::new(),
+        };
+        let order = |s: &[Section]| s.iter().map(|s| s.id.clone()).collect::<Vec<_>>();
+        let mut sections = vec![section("a"), section("b"), section("c")];
+        assert!(move_section_to(&mut sections, "a", 2));
+        assert_eq!(order(&sections), ["b", "c", "a"]);
+        assert!(move_section_to(&mut sections, "a", 0));
+        assert_eq!(order(&sections), ["a", "b", "c"]);
+        assert!(!move_section_to(&mut sections, "b", 1));
+        assert!(!move_section_to(&mut sections, "zz", 0));
+        assert!(move_section_to(&mut sections, "a", 99));
+        assert_eq!(order(&sections), ["b", "c", "a"]);
     }
 
     #[test]

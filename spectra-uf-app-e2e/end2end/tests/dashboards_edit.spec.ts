@@ -216,6 +216,62 @@ test.describe("pw-spectra-dashboards-edit", () => {
     await expect(page).toHaveURL(/\/spectra\/dashboards$/, { timeout: 60_000 });
   });
 
+  test("pw-spectra-dashboards-edit-back-asks-first-happy", async ({ page }) => {
+    const { id } = await freshCopy(page);
+    await openEdit(page, id);
+    const dialog = page.getByTestId("spectra-edit-leave-dialog");
+
+    // Clean draft: Back leaves without asking.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/spectra\/dashboards\/[^/]+$/, { timeout: 60_000 });
+    await expect(dialog).toHaveCount(0);
+
+    await openEdit(page, id);
+    await handle(page, "events").press("ArrowDown");
+    await page.goBack();
+    await expect(dialog).toContainText("Leave without saving?");
+    await dialog.getByTestId("spectra-edit-keep-editing").getByRole("button").click();
+    await expect(page).toHaveURL(new RegExp(`/${id}/edit$`));
+    await expect(cell(page, "events")).toHaveAttribute("data-row", "1");
+
+    // Keeping the draft re-arms the guard: a second Back asks again.
+    await page.goBack();
+    await expect(dialog).toContainText("Leave without saving?");
+    await dialog.getByTestId("spectra-edit-confirm").getByRole("button").click();
+    await expect(page).not.toHaveURL(/\/edit$/, { timeout: 60_000 });
+  });
+
+  test("pw-spectra-dashboards-edit-section-drag-happy", async ({ page }) => {
+    const { id } = await freshCopy(page);
+    await openEdit(page, id);
+    const add = page.getByTestId("spectra-edit-add-section").getByRole("button");
+    await add.click();
+    await add.click();
+    const headers = page.locator("[data-section-id]");
+    const order = async () => headers.evaluateAll((els) => els.map((e) => e.getAttribute("data-section-id")));
+    const before = await order();
+    expect(before.length).toBeGreaterThanOrEqual(3);
+    const last = headers.last();
+    const first = headers.first();
+
+    // A plain click on the handle still opens the menu.
+    const lastHandle = last.getByTestId("spectra-edit-section-handle").getByRole("button");
+    await lastHandle.click();
+    await expect(page.getByRole("menuitem", { name: "Move up" })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    const from = (await lastHandle.boundingBox())!;
+    const to = (await first.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 5, (from.y + to.y) / 2, { steps: 5 });
+    await page.mouse.move(from.x + 5, to.y - 2, { steps: 5 });
+    await page.mouse.up();
+
+    await expect.poll(order).toEqual([before[before.length - 1], ...before.slice(0, -1)]);
+    await expect(page.getByTestId("spectra-edit-unsaved")).toBeVisible();
+  });
+
   test("pw-spectra-dashboards-edit-text-and-variables-happy", async ({ page }) => {
     const { id, version } = await freshCopy(page);
     await openEdit(page, id);
