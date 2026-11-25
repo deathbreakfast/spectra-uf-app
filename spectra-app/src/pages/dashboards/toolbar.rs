@@ -16,6 +16,11 @@ use spectra_backend::dashboards::view::{
 };
 use spectra_backend::dashboards::{Dashboard, DashboardAccess, DashboardFilter, FilterOp};
 
+use leptos_router::hooks::use_navigate;
+use leptos_router::NavigateOptions;
+
+use super::dashboard_edit_path;
+use super::edit::PreviewAs;
 use crate::explore_time::{default_explore_datetime_range, range_from_datetime_range};
 
 const CUSTOM: &str = "custom";
@@ -48,15 +53,26 @@ pub(super) fn DashboardToolbar(
     on_change: Callback<ViewState>,
     /// Open the Duplicate dialog.
     on_duplicate: Callback<()>,
-    /// Open the Share dialog.
-    on_share: Callback<()>,
-    /// Open the version history.
-    on_history: Callback<()>,
-    /// Open the Delete dialog.
-    on_delete: Callback<()>,
+    /// Open the Share dialog. Left out on the edit page.
+    #[prop(optional)]
+    on_share: Option<Callback<()>>,
+    /// Open the version history. Left out on the edit page.
+    #[prop(optional)]
+    on_history: Option<Callback<()>>,
+    /// Open the Delete dialog. Left out on the edit page.
+    #[prop(optional)]
+    on_delete: Option<Callback<()>>,
     /// True while an older version is shown, which can't be edited, shared or deleted.
     #[prop(optional)]
     old_version: bool,
+    /// On the edit page: Preview as viewer's choice goes here, and Edit, Share, Duplicate
+    /// and the More menu are left out.
+    #[prop(optional)]
+    on_preview: Option<Callback<PreviewAs>>,
+    /// On the edit page: the query permissions the panels need, one Preview as viewer
+    /// choice each.
+    #[prop(optional)]
+    preview_grants: Vec<String>,
 ) -> impl IntoView {
     let saved_filters = dashboard.filters.clone();
     let update = move |f: &dyn Fn(&mut ViewState)| {
@@ -111,9 +127,17 @@ pub(super) fn DashboardToolbar(
 
     let variables = dashboard.variables;
     let builtin = dashboard.read_only;
-    let can_edit = access.can_edit && !old_version;
-    let can_share = !builtin && !old_version;
-    let can_delete = access.can_delete && !old_version;
+    let editing = on_preview.is_some();
+    let can_edit = access.can_edit && !editing && !old_version;
+    let can_share = !builtin && !editing && !old_version && on_share.is_some();
+    let can_delete = access.can_delete && !old_version && on_delete.is_some();
+    let edit_href = dashboard_edit_path(&dashboard.id);
+    let navigate = use_navigate();
+    let run = |cb: Option<Callback<()>>| {
+        if let Some(cb) = cb {
+            cb.run(());
+        }
+    };
 
     view! {
         <div data-testid="spectra-dashboard-toolbar">
@@ -199,35 +223,44 @@ pub(super) fn DashboardToolbar(
                         </div>
                         <Flex gap=SpacingSize::Size80.flex_gap() align=FlexAlign::Center>
                             {can_edit.then(|| view! {
-                                <Tooltip content="Editing is coming soon".to_string()>
-                                    <span data-testid="spectra-dashboard-edit">
-                                        <Button disabled_focusable=true>"Edit"</Button>
-                                    </span>
-                                </Tooltip>
+                                <span data-testid="spectra-dashboard-edit">
+                                    <Button
+                                        icon=icondata::AiEditOutlined
+                                        on_click=Callback::new(move |_| {
+                                            navigate(&edit_href, NavigateOptions::default());
+                                        })
+                                    >
+                                        "Edit"
+                                    </Button>
+                                </span>
                             })}
                             {can_share.then(|| view! {
                                 <span data-testid="spectra-dashboard-share">
                                     <Button
                                         icon=icondata::AiShareAltOutlined
-                                        on_click=Callback::new(move |_| on_share.run(()))
+                                        on_click=Callback::new(move |_| run(on_share))
                                     >
                                         "Share"
                                     </Button>
                                 </span>
                             })}
-                            {(!can_edit).then(|| view! {
+                            {on_preview.map(|on_preview| view! {
+                                <PreviewAsViewerMenu on_preview=on_preview grants=preview_grants.clone() />
+                            })}
+                            {(!can_edit && !editing).then(|| view! {
                                 <span data-testid="spectra-dashboard-duplicate">
                                     <Button on_click=Callback::new(move |_| on_duplicate.run(()))>
                                         "Duplicate"
                                     </Button>
                                 </span>
                             })}
+                            {(!editing).then(|| view! {
                             <Menu
                                 data_testid="spectra-dashboard-more"
                                 on_select=move |action: &str| match action {
                                     "duplicate" => on_duplicate.run(()),
-                                    "history" => on_history.run(()),
-                                    "delete" => on_delete.run(()),
+                                    "history" => run(on_history),
+                                    "delete" => run(on_delete),
                                     _ => {}
                                 }
                             >
@@ -239,19 +272,49 @@ pub(super) fn DashboardToolbar(
                                     />
                                 </MenuTrigger>
                                 <MenuItem value="duplicate">"Duplicate"</MenuItem>
-                                {(!builtin).then(|| view! {
+                                {(!builtin && on_history.is_some()).then(|| view! {
                                     <MenuItem value="history">"Version history"</MenuItem>
                                 })}
                                 {can_delete.then(|| view! {
                                     <MenuItem value="delete">"Delete"</MenuItem>
                                 })}
                             </Menu>
+                            })}
                         </Flex>
                     </Flex>
                 </CardContent>
             </Card>
             <AddFilterDialog open=add_open on_add=add_filter />
         </div>
+    }
+}
+
+/// Preview as viewer: everything a viewer with every grant sees, or what a viewer lacking
+/// one query permission sees.
+#[component]
+fn PreviewAsViewerMenu(on_preview: Callback<PreviewAs>, grants: Vec<String>) -> impl IntoView {
+    let choices = StoredValue::new(grants.clone());
+    view! {
+        <Menu
+            data_testid="spectra-dashboard-preview"
+            on_select=move |choice: String| {
+                if choice == "all" {
+                    on_preview.run(PreviewAs::EveryGrant);
+                } else if let Some(grant) = choice.strip_prefix("without:") {
+                    if choices.with_value(|g| g.iter().any(|x| x == grant)) {
+                        on_preview.run(PreviewAs::Without(grant.to_string()));
+                    }
+                }
+            }
+        >
+            <MenuTrigger slot>
+                <Button icon=icondata::AiEyeOutlined>"Preview as viewer"</Button>
+            </MenuTrigger>
+            <MenuItem value="all".to_string()>"A viewer with every grant"</MenuItem>
+            {grants.into_iter().map(|grant| view! {
+                <MenuItem value=format!("without:{grant}")>{format!("A viewer without {grant}")}</MenuItem>
+            }).collect_view()}
+        </Menu>
     }
 }
 

@@ -4682,6 +4682,8 @@ dependencies = [
  "uf-product-macros",
  "uf-spectra-core",
  "uf-valence",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

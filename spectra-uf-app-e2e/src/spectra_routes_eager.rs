@@ -11,8 +11,9 @@ use leptos_router::{
     path,
 };
 use spectra_app::{
-    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage,
-    MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage, SpectraLayout,
+    CallsiteGraphPage, DashboardDetailPage, DashboardEditPage, DashboardIndexPage,
+    EventExplorePage, MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
+    SpectraLayout,
 };
 
 /// Same paths as [`spectra_app::SpectraRoutes`], without Lazy route views.
@@ -24,6 +25,7 @@ pub fn SpectraRoutesEager() -> impl leptos_router::MatchNestedRoutes + Clone {
             <Route path=path!("") view=SpectraHomePage />
             <Route path=path!("dashboards") view=DashboardIndexPage />
             <Route path=path!("dashboards/:id") view=DashboardDetailPage />
+            <Route path=path!("dashboards/:id/edit") view=DashboardEditPage />
             <Route path=path!("schema") view=SchemaIndexPage />
             <Route path=path!("graph") view=CallsiteGraphPage />
             <Route path=path!("schema/:name") view=SchemaDetailPage />

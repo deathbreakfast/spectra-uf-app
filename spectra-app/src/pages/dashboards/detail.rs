@@ -114,7 +114,46 @@ pub(super) fn missing_access_text(missing: &[String]) -> String {
     }
 }
 
-fn is_not_found(err: &ServerFnError) -> bool {
+/// The toolbar state from the URL, and a callback that writes the next state back to the URL
+/// without adding a history entry or scrolling.
+pub(super) fn use_view_state() -> (Memo<ViewState>, Callback<ViewState>) {
+    let query = use_query_map();
+    let state = Memo::new(move |_| {
+        query.with(|q| ViewState::from_query(q.into_iter().map(|(k, v)| (k.as_ref(), v))))
+    });
+    let version_param = Memo::new(move |_| query.with(|q| q.get(VERSION_QUERY_KEY)));
+    let location = use_location();
+    let navigate = use_navigate();
+    let on_state = Callback::new(move |next: ViewState| {
+        let path = location.pathname.get_untracked();
+        let mut query = next.to_query();
+        // Stay on the saved version being viewed.
+        if let Some(n) = version_param.get_untracked() {
+            if !query.is_empty() {
+                query.push('&');
+            }
+            query.push_str(VERSION_QUERY_KEY);
+            query.push('=');
+            query.push_str(&n);
+        }
+        let href = if query.is_empty() {
+            path
+        } else {
+            format!("{path}?{query}")
+        };
+        navigate(
+            &href,
+            NavigateOptions {
+                replace: true,
+                scroll: false,
+                ..Default::default()
+            },
+        );
+    });
+    (state, on_state)
+}
+
+pub(super) fn is_not_found(err: &ServerFnError) -> bool {
     matches!(dashboard_error(err), Some(DashboardError::NotFound))
 }
 
@@ -186,7 +225,7 @@ pub fn DashboardDetailPage() -> impl IntoView {
 }
 
 #[component]
-fn HeaderSkeleton() -> impl IntoView {
+pub(super) fn HeaderSkeleton() -> impl IntoView {
     view! {
         <div data-testid="spectra-dashboard-loading">
             <Skeleton>
@@ -201,7 +240,7 @@ fn HeaderSkeleton() -> impl IntoView {
 
 /// Deleted, mistyped and not shared all look the same.
 #[component]
-fn DashboardNotFound() -> impl IntoView {
+pub(super) fn DashboardNotFound() -> impl IntoView {
     view! {
         <div data-testid="spectra-dashboard-not-found">
             <EmptyState
@@ -233,45 +272,14 @@ fn DashboardBody(
         missing_permissions,
         request_access_href,
         variable_gaps,
+        source_fields: _,
     } = view;
 
     let old_version = old.as_ref().map(|o| o.version.clone());
     if let Some(old) = old {
         dashboard = old.dashboard;
     }
-    let query = use_query_map();
-    let state = Memo::new(move |_| {
-        query.with(|q| ViewState::from_query(q.into_iter().map(|(k, v)| (k.as_ref(), v))))
-    });
-    let version_param = Memo::new(move |_| query.with(|q| q.get(VERSION_QUERY_KEY)));
-    let location = use_location();
-    let navigate = use_navigate();
-    let on_state = Callback::new(move |next: ViewState| {
-        let path = location.pathname.get_untracked();
-        let mut query = next.to_query();
-        // Stay on the version being viewed.
-        if let Some(n) = version_param.get_untracked() {
-            if !query.is_empty() {
-                query.push('&');
-            }
-            query.push_str(VERSION_QUERY_KEY);
-            query.push('=');
-            query.push_str(&n);
-        }
-        let href = if query.is_empty() {
-            path
-        } else {
-            format!("{path}?{query}")
-        };
-        navigate(
-            &href,
-            NavigateOptions {
-                replace: true,
-                scroll: false,
-                ..Default::default()
-            },
-        );
-    });
+    let (state, on_state) = use_view_state();
 
     let id = dashboard.id.clone();
     let title = dashboard.title.clone();

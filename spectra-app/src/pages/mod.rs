@@ -7,7 +7,7 @@ pub mod schema_detail;
 pub mod schema_index;
 
 pub use callsite_graph::CallsiteGraphPage;
-pub use dashboards::{DashboardDetailPage, DashboardIndexPage};
+pub use dashboards::{DashboardDetailPage, DashboardEditPage, DashboardIndexPage};
 pub use event_explore::EventExplorePage;
 pub use home::SpectraHomePage;
 pub use metric_explore::MetricExplorePage;

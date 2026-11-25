@@ -28,6 +28,9 @@
 //!   and filters, collapsible sections, and chart, table and text panels. Panels the viewer
 //!   can't query show locked and never fetch; personal fields are masked.
 //!   [`server::get_dashboard_view`] and [`server::query_dashboard_panel`] load them.
+//!   Owners and editors change one on [`DashboardEditPage`]: a twelve-column grid with drag,
+//!   resize and keyboard moves, sections, text panels and variables, saved with
+//!   [`server::save_dashboard`] against the version the edit started from.
 //! - **Callsite graph** — [`CallsiteGraphPage`] links the source lines that logged event rows to
 //!   the tables they wrote, via [`get_callsite_graph`]. [Get started](#trace-emit-sites)
 //! - **Server function wrappers** — [`mod@server`] Higgs `#[server]` fns, per-table Gauge
@@ -203,6 +206,7 @@
 //! | `/spectra` | [`SpectraHomePage`] | [`list_schema_metadata`] |
 //! | `/spectra/dashboards` | [`DashboardIndexPage`] | [`server::list_dashboards`] |
 //! | `/spectra/dashboards/:id` | [`DashboardDetailPage`] | [`server::get_dashboard_view`], [`server::query_dashboard_panel`] |
+//! | `/spectra/dashboards/:id/edit` | [`DashboardEditPage`] | [`server::get_dashboard_view`], [`server::save_dashboard`], [`server::list_versions`] |
 //! | `/spectra/schema` | [`SchemaIndexPage`] | [`list_schema_metadata`] |
 //! | `/spectra/schema/:name` | [`SchemaDetailPage`] | [`get_schema_metadata`] |
 //! | `/spectra/schema/:name/explore` | [`EventExplorePage`] | [`query_events`], [`query_event_aggregate`] |
@@ -309,13 +313,13 @@ pub use permissions::SpectraPermission;
 
 pub use layout::SpectraLayout;
 pub use lazy_routes::{
-    prefetch_family, CallsiteGraphRoute, DashboardDetailRoute, DashboardIndexRoute,
-    EventExploreRoute, MetricExploreRoute, SchemaDetailRoute, SchemaIndexRoute, SpectraHomeRoute,
-    SpectraLayoutRouteView,
+    prefetch_family, CallsiteGraphRoute, DashboardDetailRoute, DashboardEditRoute,
+    DashboardIndexRoute, EventExploreRoute, MetricExploreRoute, SchemaDetailRoute,
+    SchemaIndexRoute, SpectraHomeRoute, SpectraLayoutRouteView,
 };
 pub use pages::{
-    CallsiteGraphPage, DashboardDetailPage, DashboardIndexPage, EventExplorePage,
-    MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
+    CallsiteGraphPage, DashboardDetailPage, DashboardEditPage, DashboardIndexPage,
+    EventExplorePage, MetricExplorePage, SchemaDetailPage, SchemaIndexPage, SpectraHomePage,
 };
 #[cfg(feature = "ssr")]
 pub use server::ensure_table_query_permissions;
@@ -360,6 +364,7 @@ pub fn SpectraRoutes() -> impl leptos_router::MatchNestedRoutes + Clone {
             <Route path=path!("") view={Lazy::<SpectraHomeRoute>::new()} />
             <Route path=path!("dashboards") view={Lazy::<DashboardIndexRoute>::new()} />
             <Route path=path!("dashboards/:id") view={Lazy::<DashboardDetailRoute>::new()} />
+            <Route path=path!("dashboards/:id/edit") view={Lazy::<DashboardEditRoute>::new()} />
             <Route path=path!("schema") view={Lazy::<SchemaIndexRoute>::new()} />
             <Route path=path!("graph") view={Lazy::<CallsiteGraphRoute>::new()} />
             <Route path=path!("schema/:name") view={Lazy::<SchemaDetailRoute>::new()} />
