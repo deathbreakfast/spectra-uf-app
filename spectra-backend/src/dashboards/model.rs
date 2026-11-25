@@ -282,9 +282,10 @@ pub enum Principal {
 pub struct DashboardAccess {
     /// Owner user id; `None` for built-ins.
     pub owner: Option<String>,
-    /// People and groups who can edit. Filled in only for the owner.
+    /// People and groups who can edit. The owner sees Gauge's grants; others see the copy
+    /// saved the last time the owner shared it.
     pub editors: Vec<Principal>,
-    /// People and groups who can only view. Filled in only for the owner.
+    /// People and groups who can only view, filled in the same way as `editors`.
     pub viewers: Vec<Principal>,
     /// Whether the caller can save changes.
     pub can_edit: bool,

@@ -8,7 +8,7 @@ valence_schema! {
         table: "spectra_dashboard",
         version: "0.1.0",
         database: crate::dashboards::DASHBOARD_STORAGE,
-        description: "A saved Spectra dashboard: its title, owner and the queries behind its panels (never query results). The owner and the people it is shared with through its Gauge permissions can open it; editors can save it; only the owner can delete it.",
+        description: "A saved Spectra dashboard: its title, owner and the queries behind its panels (never query results). The owner and the people it is shared with through its Gauge permissions can open it; editors can save it; only the owner can delete it. When the owner shares it, the row keeps a copy of who it's shared with, so everyone who can open it sees who else has access.",
 
         policies: {
             read: { always_allow: [SYSTEM_ONLY], allow: [DASHBOARD_RESOURCE] },
@@ -23,6 +23,7 @@ valence_schema! {
             description: { r#type: FieldType::String, required: false },
             owner: { r#type: FieldType::Record("user"), required: true },
             body: { r#type: FieldType::Json, required: true },
+            shared_access: { r#type: FieldType::Json, required: false },
             version: { r#type: FieldType::Integer, required: true, default: 1 },
             created_at: { r#type: FieldType::DateTime, required: true },
             updated_at: { r#type: FieldType::DateTime, required: true },

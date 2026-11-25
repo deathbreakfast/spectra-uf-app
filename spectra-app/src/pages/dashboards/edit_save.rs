@@ -6,7 +6,7 @@ use leptos_router::hooks::use_navigate;
 use leptos_router::NavigateOptions;
 use spectra_backend::dashboards::{Dashboard, DashboardError, Version};
 
-use super::{action_error_text, copy_title, dashboard_edit_path};
+use super::{action_error_text, dashboard_edit_path, duplicate_name};
 use crate::server::{dashboard_error, duplicate_dashboard, list_versions, save_dashboard};
 
 /// A save that lost to a newer version.
@@ -145,7 +145,8 @@ pub(super) fn use_dashboard_save(
         copying.set(true);
         leptos::task::spawn_local_scoped(async move {
             let result = async {
-                let copy = duplicate_dashboard(next.id.clone(), copy_title(&next.title)).await?;
+                let copy =
+                    duplicate_dashboard(next.id.clone(), duplicate_name(&next.title)).await?;
                 let version = copy.version;
                 let edited = Dashboard {
                     id: copy.id,

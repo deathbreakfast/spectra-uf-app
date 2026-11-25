@@ -1,14 +1,15 @@
 //! The Share dialog: who owns a dashboard, who can edit and view it, and a link to it.
 //!
 //! The owner picks editors and viewers from Gauge's people and groups and saves them with
-//! `share_dashboard`. Everyone else sees the owner, their own access and Copy link.
+//! `share_dashboard`. Everyone else sees the owner, their own access, who else has access
+//! (read-only) and Copy link.
 
 use std::collections::HashMap;
 
 use leptos::prelude::*;
 use orbital::components::{
-    Caption1, Persona, PersonaConfig, SpacingSize, Tag, TagPicker, TagPickerBind, TagPickerControl,
-    TagPickerGroup, TagPickerInput, TagPickerOption,
+    Caption1, Persona, PersonaConfig, SpacingSize, Tag, TagGroup, TagPicker, TagPickerBind,
+    TagPickerControl, TagPickerGroup, TagPickerInput, TagPickerOption,
 };
 use orbital::primitives::{
     Badge, BadgeAppearance, BadgeColor, Button, ButtonAppearance, CopyButton, Dialog,
@@ -224,7 +225,7 @@ pub(super) fn ShareDialog(
                                     </span>
                                 </Flex>
                                 {state.map_or_else(
-                                    || view! { <ReadOnlySharing can_edit=can_edit /> }.into_any(),
+                                    || view! { <ReadOnlySharing open=open access=access can_edit=can_edit /> }.into_any(),
                                     |state| view! { <OwnerSharing open=open state=state /> }.into_any(),
                                 )}
                             </Flex>
@@ -358,9 +359,58 @@ fn PrincipalPicker(
     }
 }
 
+/// Read-only tags for one list of people and groups.
+fn principal_tags(principals: &[Principal], labels: &HashMap<String, String>) -> impl IntoView {
+    let names: Vec<String> = principals
+        .iter()
+        .map(|p| principal_label(p, labels))
+        .collect();
+    view! {
+        <TagGroup>
+            {names.into_iter().map(|n| view! { <Tag>{n}</Tag> }).collect_view()}
+        </TagGroup>
+    }
+}
+
 /// What someone who can't change sharing sees.
 #[component]
-fn ReadOnlySharing(can_edit: bool) -> impl IntoView {
+fn ReadOnlySharing(
+    open: RwSignal<bool>,
+    access: RwSignal<DashboardAccess>,
+    can_edit: bool,
+) -> impl IntoView {
+    // Names for the tags; a person or group the caller can't look up shows its id.
+    let directory = LocalResource::new(move || {
+        let load = open.get();
+        async move {
+            if load {
+                share_directory(None).await.unwrap_or_else(|e| {
+                    log::warn!("Spectra dashboard: loading people and groups failed: {e}");
+                    Vec::new()
+                })
+            } else {
+                Vec::new()
+            }
+        }
+    });
+    let labels = Memo::new(move |_| directory.get().map_or_default(|c| label_map(&c)));
+    let list = move |pick: fn(&DashboardAccess) -> &Vec<Principal>,
+                     caption: &'static str,
+                     testid: &'static str| {
+        move || {
+            access.with(|a| {
+                let principals = pick(a);
+                (!principals.is_empty()).then(|| {
+                    let tags = labels.with(|l| principal_tags(principals, l));
+                    view! {
+                        <Caption1>{caption}</Caption1>
+                        <div data-testid=testid>{tags}</div>
+                    }
+                })
+            })
+        }
+    };
+    let nobody = move || access.with(|a| a.editors.is_empty() && a.viewers.is_empty());
     view! {
         <Flex vertical=true gap=SpacingSize::Size40.flex_gap()>
             <Caption1>"Your access"</Caption1>
@@ -371,7 +421,13 @@ fn ReadOnlySharing(can_edit: bool) -> impl IntoView {
                     </Badge>
                 </span>
             </Flex>
-            <Caption1>"The owner sees the full list of editors and viewers."</Caption1>
+            {list(|a| &a.editors, "Editors", "spectra-share-readonly-editors")}
+            {list(|a| &a.viewers, "Viewers", "spectra-share-readonly-viewers")}
+            <Show when=nobody>
+                <span data-testid="spectra-share-readonly-empty">
+                    <Caption1>"Not shared with anyone else yet."</Caption1>
+                </span>
+            </Show>
         </Flex>
         <div data-testid="spectra-share-readonly">
             <MessageBar intent=MessageBarIntent::Info>

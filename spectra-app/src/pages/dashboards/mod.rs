@@ -55,11 +55,6 @@ fn dashboard_edit_path(id: &str) -> String {
     format!("{}/edit", spectra_dashboard_path(id))
 }
 
-/// Title for a copy made with Duplicate.
-fn copy_title(title: &str) -> String {
-    format!("Copy of {title}")
-}
-
 /// The name the Duplicate dialog starts with.
 fn duplicate_name(title: &str) -> String {
     format!("{title} (copy)")
@@ -147,11 +142,6 @@ mod tests {
             format!("{}/edit", spectra_dashboard_path("abc"))
         );
         assert!(dashboard_edit_path("abc").ends_with("/abc/edit"));
-    }
-
-    #[test]
-    fn copy_title_names_the_original() {
-        assert_eq!(copy_title("Checkout health"), "Copy of Checkout health");
     }
 
     #[test]

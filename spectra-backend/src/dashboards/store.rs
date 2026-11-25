@@ -66,7 +66,7 @@ impl Body {
     }
 }
 
-fn map_valence(err: valence::Error) -> DashboardError {
+pub(super) fn map_valence(err: valence::Error) -> DashboardError {
     match err {
         valence::Error::Privacy(_) => DashboardError::Forbidden,
         other => DashboardError::store(other),
@@ -344,6 +344,7 @@ pub async fn create(
         Some(description.to_string()).filter(|d| !d.is_empty()),
         RecordId::new(USER_TABLE, &me),
         body.to_json()?,
+        None,
         1,
         now,
         now,

@@ -39,7 +39,7 @@ use super::edit_save::{use_dashboard_save, DashboardSave};
 use super::section::DashboardSection;
 use super::toolbar::DashboardToolbar;
 use super::variables::{capitalise, count_word, VariablesDialog};
-use super::{action_error_text, copy_title, dashboard_edit_path};
+use super::{action_error_text, dashboard_edit_path};
 use crate::layout::DashboardCrumb;
 use crate::server::{
     dashboard_error, duplicate_dashboard, get_dashboard, get_dashboard_view, list_versions,
