@@ -3,17 +3,38 @@
 //! A dashboard's access lives in its Gauge resource bundle (see
 //! [`super::policies::SPECTRA_DASHBOARD`]). [`share`] grants the bundle's `Edit` and `View`
 //! permissions to people and groups; [`access`] reads them back with the caller's own rights.
+//!
+//! Gauge lists a permission's grants only to someone who can change it, so [`share`] also
+//! writes the editor and viewer lists to the dashboard row. Everyone who can open the
+//! dashboard reads that copy through Valence; the owner keeps reading Gauge itself.
 
 use std::collections::BTreeSet;
 
 use gauge::resource_permissions::{owners_group_id, permission_record_id, ResourceAction};
 use gauge::types::PrincipalKind;
+use serde::{Deserialize, Serialize};
 use valence::Valence;
 
 use super::model::{DashboardAccess, DashboardError, Principal};
 use super::policies::{dashboard_permission_name, SPECTRA_DASHBOARD};
-use super::store::{caller, load_row, record_bare_id};
+use super::store::{caller, load_row, map_valence, record_bare_id};
 use crate::dashboard_presets::builtin_dashboard;
+
+/// The copy of a dashboard's editors and viewers kept on its row.
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+struct SharedAccess {
+    editors: Vec<Principal>,
+    viewers: Vec<Principal>,
+}
+
+impl SharedAccess {
+    /// The stored copy, or empty lists when the row has none or it doesn't parse.
+    fn from_row(value: Option<&serde_json::Value>) -> Self {
+        value
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default()
+    }
+}
 
 fn principals_from(
     list: Vec<gauge::types::PrincipalRefDto>,
@@ -115,12 +136,25 @@ pub async fn share(
             set_grant(v, id, action, p, false).await?;
         }
     }
-    access(v, id).await
+    let shared = access(v, id).await?;
+    let copy = serde_json::to_value(SharedAccess {
+        editors: shared.editors.clone(),
+        viewers: shared.viewers.clone(),
+    })
+    .map_err(DashboardError::store)?;
+    row.get_mutable(v, valence::use_!(r"When you **share a Spectra dashboard**, we **save the list of people and groups** it's shared with on the dashboard, so everyone who can open it sees who else has access."))
+        .set_shared_access(copy)
+        .map_err(map_valence)?
+        .commit()
+        .await
+        .map_err(map_valence)?;
+    Ok(shared)
 }
 
 /// Who can reach a dashboard, and what the caller may do with it.
 ///
-/// Editors and viewers are listed only for the owner; other callers get empty lists.
+/// The owner gets editors and viewers from Gauge. Everyone else gets the copy [`share`] last
+/// wrote to the row, or empty lists for a dashboard the owner hasn't shared since.
 ///
 /// # Errors
 ///
@@ -156,7 +190,8 @@ pub async fn access(v: &Valence, id: &str) -> Result<DashboardAccess, DashboardE
         let viewers = viewers.difference(&editors).cloned().collect();
         (editors.into_iter().collect(), viewers)
     } else {
-        (Vec::new(), Vec::new())
+        let copy = SharedAccess::from_row(row.shared_access());
+        (copy.editors, copy.viewers)
     };
     Ok(DashboardAccess {
         owner: Some(owner),

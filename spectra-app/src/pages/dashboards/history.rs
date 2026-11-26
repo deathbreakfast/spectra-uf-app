@@ -177,33 +177,22 @@ pub(super) fn HistoryDrawer(
 /// Asks before saving an older version again as the newest one.
 #[component]
 pub(super) fn RestoreDialog(
-    /// The version to restore; `Some` opens the dialog.
-    target: RwSignal<Option<u32>>,
+    /// Whether the dialog is open.
+    open: RwSignal<bool>,
+    /// The version to restore. Set it before opening the dialog.
+    target: ReadSignal<Option<u32>>,
     /// Dashboard id.
     dashboard_id: String,
     /// Runs after the restore is saved.
     on_restored: Callback<()>,
 ) -> impl IntoView {
-    let open = RwSignal::new(false);
-    Effect::new(move |_| {
-        let wanted = target.get().is_some();
-        if open.get_untracked() != wanted {
-            open.set(wanted);
-        }
-    });
-    // Closing with Cancel, Escape or the scrim clears the target.
-    Effect::new(move |_| {
-        if !open.get() && target.get_untracked().is_some() {
-            target.set(None);
-        }
-    });
     let error = RwSignal::new(None::<String>);
 
     // The newest version, for the sentence that says what stays.
     let newest = LocalResource::new({
         let id = dashboard_id.clone();
         move || {
-            let (wanted, id) = (target.get().is_some(), id.clone());
+            let (wanted, id) = (open.get(), id.clone());
             async move {
                 if wanted {
                     list_versions(id)
