@@ -1,24 +1,28 @@
 use chrono::{DateTime, Utc};
 use leptos::prelude::*;
-use orbital::primitives::{DateTimeRange, MessageBar, MessageBarIntent};
+use orbital::primitives::{MessageBar, MessageBarIntent};
 use orbital_datatable::DataTableFilter;
 use serde::{Deserialize, Serialize};
+use spectra_backend::query_url::resolve;
+use spectra_backend::{LinkFilter, QueryLink, QueryView};
 use spectra_core::{
     EventAggregateRequest, EventAggregateResult, EventAggregationSpec, EventExploreView,
-    EventQueryResult, GridFilterModel,
+    EventQueryResult,
 };
 
 use crate::components::explore::{EventExploreSkeleton, EventExploreViewport};
-use crate::components::query::{normalize_view, PermissionDeniedState};
+use crate::components::query::PermissionDeniedState;
 use crate::components::tables::{
     build_event_log_fetcher, data_table_filter_to_grid, EventLogScope,
 };
-use crate::explore_time::{default_explore_datetime_range, range_from_datetime_range};
+use crate::explore_time::ExploreLinkState;
 use crate::server::{
     get_schema_metadata, query_event_aggregate, query_events, server_fn_is_permission_denied,
 };
 
 use super::event_toolbar::EventToolbar;
+use super::link_filters::{link_filters_to_table, table_filter_to_link};
+use super::link_query::{aggregation_for, explore_view};
 
 #[derive(Clone, Serialize, Deserialize)]
 enum ExploreData {
@@ -32,22 +36,34 @@ enum ExploreData {
     Aggregate(EventAggregateResult),
 }
 
+fn seed_filter(filters: &[LinkFilter]) -> Option<DataTableFilter> {
+    (!filters.is_empty()).then(|| link_filters_to_table(filters))
+}
+
 #[component]
 pub fn EventExplorePanel(
     /// Reactive signal for the table identifier.
     table: Memo<String>,
-    /// Bound datetime range.
-    range: RwSignal<Option<DateTimeRange>>,
-    /// View Select value (pending until See).
-    picker_view: RwSignal<EventExploreView>,
-    /// Applied view driving the query + viewport.
-    applied_view: RwSignal<EventExploreView>,
-    /// Two-way signal holding the aggregation mode to apply.
-    aggregation: RwSignal<EventAggregationSpec>,
+    /// The explore query in the URL, which every control writes to.
+    link: ExploreLinkState,
 ) -> impl IntoView {
     let (last_refreshed, set_last_refreshed) = signal(None::<DateTime<Utc>>);
-    let table_filter = RwSignal::new(None::<DataTableFilter>);
-    let grid_filter = RwSignal::new(GridFilterModel::default());
+    let query = Memo::new(move |_| {
+        link.current
+            .with(|c| c.as_ref().map(|c| c.link.clone()))
+            .unwrap_or_else(|| QueryLink::event(table.get()))
+    });
+    let applied_view = Memo::new(move |_| query.with(|q| explore_view(q.view)));
+
+    // The grid's filter starts from the link and follows it when the URL changes from outside.
+    let table_filter = RwSignal::new(query.with_untracked(|q| seed_filter(&q.filters)));
+    Effect::new(move |prev: Option<u64>| {
+        let rev = link.seed_rev.get();
+        if prev.is_some() {
+            table_filter.set(query.with_untracked(|q| seed_filter(&q.filters)));
+        }
+        rev
+    });
 
     let schema_res = Resource::new(
         move || table.get(),
@@ -80,51 +96,21 @@ pub fn EventExplorePanel(
 
     let explore_res = Resource::new(
         move || {
-            let range_key = range.get().map(|r| {
-                let n = r.normalized();
-                (n.start.instant().timestamp(), n.end.instant().timestamp())
-            });
-            let agg = aggregation.get();
-            let view = normalize_view(applied_view.get());
+            let q = query.get();
+            let view = explore_view(q.view);
+            let agg_key = serde_json::to_string(&aggregation_for(&q, view)).unwrap_or_default();
             // The Event log grid filters on the server itself; only charts refetch here.
-            let filter_key = if view == EventExploreView::EventLog {
-                String::new()
+            let filters = if view == EventExploreView::EventLog {
+                Vec::new()
             } else {
-                serde_json::to_string(&grid_filter.get()).unwrap_or_default()
+                q.filters
             };
-            let agg_key = serde_json::to_string(&agg).unwrap_or_default();
-            (table.get(), range_key, view, agg_key, filter_key)
+            (table.get(), q.window, view, agg_key, filters)
         },
-        |(table, range_key, view, agg_key, filter_key)| async move {
-            let filter: GridFilterModel = serde_json::from_str(&filter_key).unwrap_or_default();
-            let mut agg: EventAggregationSpec =
-                serde_json::from_str(&agg_key).unwrap_or(EventAggregationSpec {
-                    measure: spectra_core::EventMeasure::Count,
-                    measure_field: None,
-                    time_bucket_secs: Some(3600),
-                    group_by_field: None,
-                    row_fields: Vec::new(),
-                    pivot_field: None,
-                });
-            let range = match range_key {
-                Some((start_ts, end_ts)) => {
-                    use orbital::primitives::{DatetimeTimezone, OrbitalDateTime};
-                    // Keep Local tags aligned with DateTimeRangePicker appearance.
-                    DateTimeRange::new(
-                        OrbitalDateTime::from_instant(
-                            DateTime::<Utc>::from_timestamp(start_ts, 0).unwrap_or_else(Utc::now),
-                            DatetimeTimezone::Local,
-                        ),
-                        OrbitalDateTime::from_instant(
-                            DateTime::<Utc>::from_timestamp(end_ts, 0).unwrap_or_else(Utc::now),
-                            DatetimeTimezone::Local,
-                        ),
-                    )
-                }
-                None => default_explore_datetime_range(),
-            };
-            let (start, end) = range_from_datetime_range(&range);
-            let view = normalize_view(view);
+        |(table, window, view, agg_key, filters)| async move {
+            let agg: EventAggregationSpec = serde_json::from_str(&agg_key)
+                .unwrap_or_else(|_| aggregation_for(&QueryLink::event(table.clone()), view));
+            let (start, end) = window.bounds(Utc::now());
             match view {
                 EventExploreView::EventLog => {
                     let scope = EventLogScope {
@@ -141,12 +127,7 @@ pub fn EventExplorePanel(
                     })
                 }
                 other => {
-                    if !matches!(
-                        other,
-                        EventExploreView::PieChart | EventExploreView::BarChart
-                    ) {
-                        agg.group_by_field = None;
-                    }
+                    let filter = data_table_filter_to_grid(&link_filters_to_table(&filters));
                     let result = query_event_aggregate(EventAggregateRequest {
                         table: table.clone(),
                         start,
@@ -169,39 +150,86 @@ pub fn EventExplorePanel(
         }
     });
 
-    // Selecting Event log applies immediately; chart views wait for See.
-    Effect::new(move |_| {
-        let picked = normalize_view(picker_view.get());
-        if picked == EventExploreView::EventLog {
-            applied_view.set(EventExploreView::EventLog);
-        }
+    let on_filter_change = Callback::new(move |f: DataTableFilter| {
+        let filters = table_filter_to_link(&f);
+        link.update(|l| l.filters = filters);
     });
 
-    let on_filter_change = Callback::new(move |f: DataTableFilter| {
-        grid_filter.set(data_table_filter_to_grid(&f));
+    // The query as opened (or as last changed from outside). Fields picked in the controls
+    // come from the field lists, so only fields that arrived with a link are checked.
+    let opened = Memo::new(move |_| {
+        link.seed_rev.track();
+        query.get_untracked()
     });
+
+    // What the link asks for that this explorer can't show as asked.
+    let notices = move || {
+        let mut out: Vec<String> = Vec::new();
+        if let Some(err) = link
+            .current
+            .with(|c| c.as_ref().and_then(|c| c.error.clone()))
+        {
+            out.push(format!(
+                "{err}, so this opens {} with its default settings.",
+                table.get()
+            ));
+        }
+        let q = query.get();
+        if q.view == Some(QueryView::Stat) {
+            out.push(
+                "The event explorer has no Stat view, so this link opens on the Event log.".into(),
+            );
+        }
+        if let Some(Ok(Some(schema))) = schema_res.get() {
+            let still_used = q.referenced_fields();
+            let unknown: Vec<String> = opened
+                .with(|o| resolve(o, &schema))
+                .into_iter()
+                .filter(|f| still_used.contains(f))
+                .collect();
+            if !unknown.is_empty() {
+                out.push(format!(
+                    "This link uses fields {} doesn't have: {}.",
+                    schema.table_or_metric,
+                    unknown.join(", ")
+                ));
+            }
+        }
+        out.into_iter()
+            .map(|text| {
+                view! {
+                    <div data-testid="spectra-query-link-notice">
+                        <MessageBar intent=MessageBarIntent::Warning>{text}</MessageBar>
+                    </div>
+                }
+            })
+            .collect_view()
+    };
 
     view! {
         <div
             data-testid="spectra-event-explore-layout"
             style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--orb-space-inline-md); min-height: 0; flex: 1 1 auto; width: 100%;"
         >
-            <EventToolbar
-                range=range
-                picker_view=Signal::derive(move || picker_view.get())
-                on_picker_view=Callback::new(move |v| picker_view.set(normalize_view(v)))
-                on_see=Callback::new(move |()| {
-                    applied_view.set(normalize_view(picker_view.get()));
-                })
-                aggregation=aggregation
-                field_options=Signal::derive(move || field_options.get())
-                on_refresh=Callback::new(move |()| explore_res.refetch())
-                last_refreshed=Signal::derive(move || last_refreshed.get())
-            />
+            {move || {
+                // Rebuild the controls only when the URL changes from outside.
+                link.seed_rev.track();
+                let seed = query.get_untracked();
+                view! {
+                    <EventToolbar
+                        link=link
+                        seed=seed
+                        field_options=Signal::derive(move || field_options.get())
+                        on_refresh=Callback::new(move |()| explore_res.refetch())
+                        last_refreshed=Signal::derive(move || last_refreshed.get())
+                    />
+                }
+            }}
             <div
                 data-testid="spectra-event-explore-viewport-pane"
                 style="flex: 1 1 28rem; min-width: min(100%, 18rem); min-height: 0; align-self: stretch;"
             >
+            <Transition fallback=|| ()>{notices}</Transition>
             <Transition fallback=move || view! { <EventExploreSkeleton view=applied_view.get() /> }>
                 {move || match explore_res.get() {
                     Some(Ok(ExploreData::Rows { table, start, end, first_page })) => {
@@ -223,18 +251,24 @@ pub fn EventExplorePanel(
                             />
                         }.into_any()
                     }
-                    Some(Ok(ExploreData::Aggregate(agg))) => view! {
-                        <EventExploreViewport
-                            view=applied_view.get()
-                            row_result=None
-                            aggregate_result=Some(agg)
-                            group_by_field=aggregation.get().group_by_field
-                            row_fields=aggregation.get().row_fields
-                            column_fields=column_fields.get()
-                            table_filter=table_filter
-                            on_filter_change=on_filter_change
-                        />
-                    }.into_any(),
+                    Some(Ok(ExploreData::Aggregate(agg))) => {
+                        // The result already reflects the query; read it untracked so a
+                        // query edit waits for its own refetch.
+                        let view = applied_view.get_untracked();
+                        let spec = query.with_untracked(|q| aggregation_for(q, view));
+                        view! {
+                            <EventExploreViewport
+                                view=view
+                                row_result=None
+                                aggregate_result=Some(agg)
+                                group_by_field=spec.group_by_field
+                                row_fields=spec.row_fields
+                                column_fields=column_fields.get()
+                                table_filter=table_filter
+                                on_filter_change=on_filter_change
+                            />
+                        }.into_any()
+                    }
                     Some(Err(e)) if server_fn_is_permission_denied(&e) => {
                         view! { <PermissionDeniedState /> }.into_any()
                     }

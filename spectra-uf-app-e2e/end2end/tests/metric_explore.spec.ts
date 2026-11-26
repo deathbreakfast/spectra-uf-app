@@ -41,6 +41,7 @@ test.describe("pw-spectra-metric-explore", () => {
     await expect(page.getByTestId("spectra-metric-time-series-chart")).toBeVisible({
       timeout: 60_000,
     });
+    await expect(page).toHaveURL(/[?&]window=6h(&|$)/);
     // Selected preset uses Primary appearance; 1h should no longer be the only active control.
     await page.getByTestId("spectra-time-range-1h").click();
     await expect(page.getByTestId("spectra-metric-time-series-chart")).toBeVisible({
