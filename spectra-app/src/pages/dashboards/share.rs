@@ -393,7 +393,12 @@ fn ReadOnlySharing(
             }
         }
     });
-    let labels = Memo::new(move |_| directory.get().map_or_default(|c| label_map(&c)));
+    let labels = Memo::new(move |_| {
+        directory
+            .get()
+            .as_deref()
+            .map_or_else(HashMap::new, label_map)
+    });
     let list = move |pick: fn(&DashboardAccess) -> &Vec<Principal>,
                      caption: &'static str,
                      testid: &'static str| {
