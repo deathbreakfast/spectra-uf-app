@@ -56,10 +56,14 @@ test.describe("pw-spectra-callsite-graph", () => {
     await seedAuth(page, "admin");
     await page.goto("/spectra/graph", { waitUntil: "domcontentloaded" });
     await waitForHydrated(page);
-    await page.getByTestId(`callsite-edge-${CHECKOUT_12}`).getByRole("link").click();
+    const link = page.getByTestId(`callsite-edge-${CHECKOUT_12}`).getByRole("link");
+    // The explorer opens on the graph's window (24h by default), not its own last hour.
+    await expect(link).toHaveAttribute("href", /\/explore\?window=24h$/, { timeout: 60_000 });
+    await link.click();
     await expect(page.getByTestId("spectra-event-explore-panel")).toBeVisible({
       timeout: 60_000,
     });
+    await expect(page).toHaveURL(/window=24h/);
   });
 
   test("pw-spectra-callsite-graph-show-metrics-happy", async ({ page }) => {

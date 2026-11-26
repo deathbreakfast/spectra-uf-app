@@ -12,9 +12,7 @@ use orbital_graph::{
     Graph, GraphEdge, GraphFill, GraphInput, GraphLegend, GraphLegendItem, GraphLegendLine,
     GraphNode, GraphNodeView,
 };
-use spectra_backend::{
-    spectra_metric_explore_path, spectra_schema_explore_path, CallsiteGraph, EmitSite, SiteKind,
-};
+use spectra_backend::{CallsiteGraph, EmitSite, QueryLink, QueryWindow, SiteKind, WindowPreset};
 use uf_product::paths::PERMISSION_PERMISSIONS;
 
 /// Legend set of event-table sites and nodes.
@@ -76,11 +74,16 @@ fn target_node_id(kind: SiteKind, name: &str) -> String {
     }
 }
 
-fn target_href(kind: SiteKind, name: &str) -> String {
-    match kind {
-        SiteKind::Table => spectra_schema_explore_path(name),
-        SiteKind::Metric => spectra_metric_explore_path(name),
-    }
+/// Explorer link for a table or metric, opened on the graph's window so the site's rows or
+/// points are in view. A window outside the presets falls back to 24 hours.
+fn target_href(kind: SiteKind, name: &str, window_secs: i64) -> String {
+    let mut link = match kind {
+        SiteKind::Table => QueryLink::event(name),
+        SiteKind::Metric => QueryLink::metric(name),
+    };
+    link.window =
+        QueryWindow::Last(WindowPreset::from_secs(window_secs).unwrap_or(WindowPreset::Hours24));
+    link.encode()
 }
 
 /// Graph input and node views: sites on the left, tables and metrics on the right.
@@ -287,6 +290,8 @@ pub fn CallsiteGraphView(
     graph: CallsiteGraph,
     /// Legend sets hidden in the graph and the edge list, shared with [`CallsiteShowToggle`].
     hidden_sets: RwSignal<HashSet<String>>,
+    /// Look-back window the graph was loaded for, in seconds; explorer links open on it.
+    window_secs: i64,
 ) -> impl IntoView {
     let (input, views) = graph_model(&graph);
     let height = graph_height(&graph);
@@ -360,16 +365,16 @@ pub fn CallsiteGraphView(
                     />
                 </Flex>
             </div>
-            <EdgeList sites=graph.sites hidden_sets=hidden_sets />
+            <EdgeList sites=graph.sites hidden_sets=hidden_sets window_secs=window_secs />
         </Flex>
     }
 }
 
 /// One "All emit sites" entry: the line, its kind, module, and what it writes.
-fn edge_row(site: &EmitSite) -> impl IntoView {
+fn edge_row(site: &EmitSite, window_secs: i64) -> impl IntoView {
     let label = site_label(site);
     let test_id = format!("callsite-edge-{label}");
-    let href = target_href(site.kind, &site.target);
+    let href = target_href(site.kind, &site.target, window_secs);
     let (verb, kind_label) = match site.kind {
         SiteKind::Table => ("writes ", "Event"),
         SiteKind::Metric => ("records ", "Metric"),
@@ -403,13 +408,15 @@ fn EdgeList(
     sites: Vec<EmitSite>,
     /// Legend sets to leave out.
     hidden_sets: RwSignal<HashSet<String>>,
+    /// Window explorer links open on, in seconds.
+    window_secs: i64,
 ) -> impl IntoView {
     let rows = sites
         .into_iter()
         .map(|site| {
             let set = set_of(site.kind);
             let visible = move || !hidden_sets.with(|h| h.contains(set));
-            view! { <Show when=visible>{edge_row(&site)}</Show> }
+            view! { <Show when=visible>{edge_row(&site, window_secs)}</Show> }
         })
         .collect_view();
     view! {
@@ -425,5 +432,26 @@ fn EdgeList(
                 </CardContent>
             </Card>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explorer_links_open_on_the_graph_window() {
+        assert_eq!(
+            target_href(SiteKind::Table, "checkout_event", 24 * 3600),
+            "/spectra/schema/checkout_event/explore?window=24h"
+        );
+        assert_eq!(
+            target_href(SiteKind::Metric, "cache_hits", 7 * 24 * 3600),
+            "/spectra/metric/cache_hits/explore?window=7d"
+        );
+        assert_eq!(
+            target_href(SiteKind::Table, "checkout_event", 90),
+            "/spectra/schema/checkout_event/explore?window=24h"
+        );
     }
 }

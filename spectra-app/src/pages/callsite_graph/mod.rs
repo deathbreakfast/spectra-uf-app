@@ -99,7 +99,9 @@ pub fn CallsiteGraphPage() -> impl IntoView {
                                     </div>
                                 }.into_any()
                             }
-                            None => view! { <CallsiteGraphView graph=graph hidden_sets=hidden_sets /> }.into_any(),
+                            None => view! {
+                                <CallsiteGraphView graph=graph hidden_sets=hidden_sets window_secs=window_secs.get_untracked() />
+                            }.into_any(),
                         },
                         Some(Err(e)) if server_fn_is_permission_denied(&e) => {
                             view! { <PermissionDeniedState /> }.into_any()
