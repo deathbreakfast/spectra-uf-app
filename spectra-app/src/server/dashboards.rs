@@ -257,4 +257,79 @@ mod tests {
     fn other_server_errors_decode_to_none_sad_path() {
         assert_eq!(dashboard_error(&ServerFnError::new("boom")), None);
     }
+
+    fn dashboard_with_empty_lists() -> Dashboard {
+        use spectra_backend::dashboards::{ChartKind, Layout, Panel, PanelSource, Section};
+
+        Dashboard {
+            id: "d1".into(),
+            title: "Checkout health".into(),
+            description: String::new(),
+            owner: Some("alice".into()),
+            read_only: false,
+            sections: vec![Section {
+                id: "s1".into(),
+                title: String::new(),
+                collapsed: false,
+                panels: vec![Panel {
+                    id: "p1".into(),
+                    title: "Requests".into(),
+                    source: PanelSource::Metric {
+                        metric: "photon_publishes".into(),
+                    },
+                    chart: ChartKind::Table,
+                    measure: None,
+                    bucket: None,
+                    group_by: Vec::new(),
+                    filters: Vec::new(),
+                    table: None,
+                    layout: Layout {
+                        col: 0,
+                        span: 6,
+                        row: 0,
+                        height: 4,
+                    },
+                    keep_window: None,
+                }],
+            }],
+            variables: Vec::new(),
+            filters: Vec::new(),
+            version: 1,
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    // `save_dashboard` and `share_dashboard` take `input = Json`; the default URL encoding
+    // drops empty lists, so these pin that the JSON body keeps them.
+    #[test]
+    fn save_dashboard_keeps_empty_lists_through_json_happy_path() {
+        let args = SaveDashboard {
+            dashboard: dashboard_with_empty_lists(),
+            expected_version: 1,
+            summary: None,
+        };
+        let json = serde_json::to_value(&args).expect("serialize");
+        assert_eq!(json["dashboard"]["filters"], serde_json::json!([]));
+        assert_eq!(json["dashboard"]["variables"], serde_json::json!([]));
+        let panel = &json["dashboard"]["sections"][0]["panels"][0];
+        assert_eq!(panel["group_by"], serde_json::json!([]));
+        assert_eq!(panel["filters"], serde_json::json!([]));
+        let back: SaveDashboard = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(back.dashboard, args.dashboard);
+        assert_eq!(back.expected_version, 1);
+    }
+
+    #[test]
+    fn share_dashboard_keeps_empty_lists_through_json_happy_path() {
+        let args = ShareDashboard {
+            id: "d1".into(),
+            editors: Vec::new(),
+            viewers: Vec::new(),
+        };
+        let json = serde_json::to_string(&args).expect("serialize");
+        let back: ShareDashboard = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.id, "d1");
+        assert_eq!(back.editors, Vec::<Principal>::new());
+        assert_eq!(back.viewers, Vec::<Principal>::new());
+    }
 }
