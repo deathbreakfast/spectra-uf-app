@@ -1,16 +1,15 @@
-//! The edit page's dialogs: confirmations, Compare versions and the text panel editor.
+//! The edit page's dialogs: confirmations and Compare versions.
 
 use leptos::prelude::*;
 use orbital::components::{Caption1, DialogSize, List, ListItem, SpacingSize, Subtitle2};
 use orbital::primitives::{
     Body1, Button, ButtonAppearance, Dialog, DialogActions, DialogBody, DialogContent,
-    DialogSurface, DialogTitle, Field, Flex, Input, InputBind, MessageBar, MessageBarIntent,
-    Skeleton, SkeletonItem, Textarea, TextareaBind,
+    DialogSurface, DialogTitle, Flex, MessageBar, MessageBarIntent, Skeleton, SkeletonItem,
 };
-use spectra_backend::dashboards::{Dashboard, PanelSource};
+use spectra_backend::dashboards::Dashboard;
 
 use super::action_error_text;
-use super::edit::{add_text_panel, change_parts};
+use super::edit::change_parts;
 use super::edit_save::Conflict;
 use super::variables::capitalise;
 use crate::server::get_dashboard;
@@ -135,110 +134,6 @@ pub(super) fn CompareDialog(
                         </DialogContent>
                         <DialogActions>
                             <Button on_click=Callback::new(move |_| open.set(false))>"Close"</Button>
-                        </DialogActions>
-                    </DialogBody>
-                </div>
-            </DialogSurface>
-        </Dialog>
-    }
-}
-
-/// Title and Markdown for a text panel. With `target` set it edits that panel, otherwise
-/// Apply adds a new one.
-#[component]
-pub(super) fn TextPanelDialog(
-    open: RwSignal<bool>,
-    target: RwSignal<Option<String>>,
-    draft: RwSignal<Dashboard>,
-) -> impl IntoView {
-    let title = RwSignal::new(String::new());
-    let markdown = RwSignal::new(String::new());
-    Effect::new(move |_| {
-        if !open.get() {
-            return;
-        }
-        let existing = target.get_untracked().and_then(|id| {
-            draft.with_untracked(|d| {
-                d.sections
-                    .iter()
-                    .flat_map(|s| &s.panels)
-                    .find(|p| p.id == id)
-                    .and_then(|p| match &p.source {
-                        PanelSource::Text { markdown } => Some((p.title.clone(), markdown.clone())),
-                        _ => None,
-                    })
-            })
-        });
-        let (t, m) = existing.unwrap_or_default();
-        title.set(t);
-        markdown.set(m);
-    });
-    let heading = move || {
-        if target.with(Option::is_some) {
-            "Edit text"
-        } else {
-            "Add text"
-        }
-    };
-    let apply = Callback::new(move |_| {
-        let (t, m) = (
-            title.get_untracked().trim().to_string(),
-            markdown.get_untracked(),
-        );
-        if m.trim().is_empty() {
-            return;
-        }
-        match target.get_untracked() {
-            Some(id) => draft.update(|d| {
-                if let Some(panel) = d
-                    .sections
-                    .iter_mut()
-                    .flat_map(|s| s.panels.iter_mut())
-                    .find(|p| p.id == id)
-                {
-                    panel.title = t;
-                    panel.source = PanelSource::Text { markdown: m };
-                }
-            }),
-            None => draft.update(|d| {
-                add_text_panel(d, t, m);
-            }),
-        }
-        open.set(false);
-    });
-    view! {
-        <Dialog open=open>
-            <DialogSurface>
-                <div data-testid="spectra-edit-text-dialog">
-                    <DialogBody>
-                        <DialogTitle>{heading}</DialogTitle>
-                        <DialogContent>
-                            <Flex vertical=true gap=SpacingSize::Size120.flex_gap()>
-                                <Field label="Title">
-                                    <div data-testid="spectra-edit-text-title">
-                                        <Input bind=InputBind::new(title) />
-                                    </div>
-                                </Field>
-                                <Field label="Text (Markdown)" required=true>
-                                    <div data-testid="spectra-edit-text-markdown">
-                                        <Textarea bind=TextareaBind::new(markdown) />
-                                    </div>
-                                </Field>
-                            </Flex>
-                        </DialogContent>
-                        <DialogActions>
-                            <Button appearance=ButtonAppearance::Subtle on_click=Callback::new(move |_| open.set(false))>
-                                "Cancel"
-                            </Button>
-                            <span data-testid="spectra-edit-text-apply">
-                                <Button
-                                    appearance=ButtonAppearance::Primary
-                                    disabled=Signal::derive(move || markdown.with(|m| m.trim().is_empty()))
-                                    on_click=apply
-                                >
-                                    "Apply"
-                                </Button>
-                            </span>
                         </DialogActions>
                     </DialogBody>
                 </div>

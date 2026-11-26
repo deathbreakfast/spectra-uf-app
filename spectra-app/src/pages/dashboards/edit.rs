@@ -33,10 +33,12 @@ use super::detail::{
     is_not_found, join_names, use_view_state, DashboardNotFound, HeaderSkeleton, PanelEnv,
 };
 use super::edit_bar::EditBar;
-use super::edit_dialogs::{CompareDialog, ConfirmDialog, TextPanelDialog};
+use super::edit_dialogs::{CompareDialog, ConfirmDialog};
 use super::edit_grid::{next_free_row, EditGrid, EditSectionHeader, PhoneSectionList};
 use super::edit_save::{use_dashboard_save, DashboardSave};
+use super::panel_editor::PanelEditor;
 use super::section::DashboardSection;
+use super::text_panel::TextPanelDrawer;
 use super::toolbar::DashboardToolbar;
 use super::variables::{capitalise, count_word, VariablesDialog};
 use super::{action_error_text, dashboard_edit_path};
@@ -48,8 +50,8 @@ use crate::server::{
 
 /// How the panel editor opens: from one of Add panel's choices, or on an existing panel.
 ///
-/// The panel editor itself comes later. Until then only [`PanelEditorStart::Text`] and
-/// [`PanelEditorStart::Edit`] on a text panel do anything: they open a Markdown dialog.
+/// [`PanelEditorStart::Text`] and [`PanelEditorStart::Edit`] on a text panel open the text
+/// panel drawer; the rest open the panel editor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum PanelEditorStart {
     /// Build a panel from scratch.
@@ -209,18 +211,30 @@ pub(super) fn add_section(d: &mut Dashboard, title: &str) -> String {
     id
 }
 
-/// Add a text panel below everything in the last section (adding a section if there is
-/// none) and return its id.
-pub(super) fn add_text_panel(d: &mut Dashboard, title: String, markdown: String) -> String {
+/// Add `panel` below everything in the last section (adding a section if there is none),
+/// giving it a fresh id and row, and return the id.
+pub(super) fn add_panel(d: &mut Dashboard, mut panel: Panel) -> String {
     let ids = panel_ids(d);
     let id = next_id("panel", ids.iter().map(String::as_str));
     if d.sections.is_empty() {
         add_section(d, "");
     }
     if let Some(section) = d.sections.last_mut() {
-        let row = next_free_row(&section.panels);
-        section.panels.push(Panel {
-            id: id.clone(),
+        panel.id.clone_from(&id);
+        panel.layout.col = 0;
+        panel.layout.row = next_free_row(&section.panels);
+        section.panels.push(panel);
+    }
+    id
+}
+
+/// Add a text panel below everything in the last section (adding a section if there is
+/// none) and return its id.
+pub(super) fn add_text_panel(d: &mut Dashboard, title: String, markdown: String) -> String {
+    add_panel(
+        d,
+        Panel {
+            id: String::new(),
             title,
             source: PanelSource::Text { markdown },
             chart: ChartKind::Table,
@@ -232,13 +246,12 @@ pub(super) fn add_text_panel(d: &mut Dashboard, title: String, markdown: String)
             layout: Layout {
                 col: 0,
                 span: 6,
-                row,
+                row: 0,
                 height: 2,
             },
             keep_window: None,
-        });
-    }
-    id
+        },
+    )
 }
 
 /// Query permissions the dashboard's panels need, sorted.
@@ -455,6 +468,8 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let variables_open = RwSignal::new(false);
     let text_open = RwSignal::new(false);
     let text_target = RwSignal::new(None::<String>);
+    let editor_open = RwSignal::new(false);
+    let editor_start = RwSignal::new(None::<PanelEditorStart>);
     let discard_open = RwSignal::new(false);
     let compare_open = RwSignal::new(false);
     // The link a held click was going to; the guard sets it and opens the dialog together.
@@ -483,10 +498,15 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
             if is_text {
                 text_target.set(Some(id));
                 text_open.set(true);
+            } else {
+                editor_start.set(Some(PanelEditorStart::Edit(id)));
+                editor_open.set(true);
             }
         }
-        // The panel editor lands in a later change; the menu keeps these disabled.
-        PanelEditorStart::Build | PanelEditorStart::FromLink => {}
+        start @ (PanelEditorStart::Build | PanelEditorStart::FromLink) => {
+            editor_start.set(Some(start));
+            editor_open.set(true);
+        }
     });
     let on_add_section = Callback::new(move |()| {
         let mut id = String::new();
@@ -660,7 +680,8 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
             }}
         </Flex>
         <VariablesDialog open=variables_open draft=draft source_fields=source_fields />
-        <TextPanelDialog open=text_open target=text_target draft=draft />
+        <TextPanelDrawer open=text_open target=text_target draft=draft />
+        <PanelEditor open=editor_open start=editor_start draft=draft state=state />
         <ConfirmDialog
             open=discard_open
             test_id="spectra-edit-discard-dialog"

@@ -17,9 +17,11 @@ mod history;
 mod list;
 mod new_dialog;
 mod panel;
+mod panel_editor;
 mod panels;
 mod section;
 mod share;
+mod text_panel;
 mod toolbar;
 mod variables;
 

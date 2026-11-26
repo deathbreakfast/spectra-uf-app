@@ -330,3 +330,286 @@ pub async fn query_dashboard_panel(
         EventAggregateResult::Pivot { headline, .. } => PanelData::Stat { headline },
     })
 }
+
+/// A field of a panel source, as the panel editor offers it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceField {
+    /// Field name.
+    pub name: String,
+    /// Whether the field holds numbers, so Sum of can use it.
+    pub numeric: bool,
+    /// Whether the field is personal data. Charts show stand-in labels for it.
+    pub pii: bool,
+}
+
+/// A table or metric the viewer can read, for the panel editor's source list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PanelSourceOption {
+    /// Table or metric name.
+    pub name: String,
+    /// True for a metric, false for an event table.
+    pub metric: bool,
+}
+
+/// What the viewer may do with one panel source.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PanelSourceDetail {
+    /// The viewer can read it.
+    Readable {
+        /// The source's fields, or `None` when the schema isn't registered in this binary.
+        /// With `None` nothing can be checked against the schema.
+        fields: Option<Vec<SourceField>>,
+    },
+    /// The viewer lacks the source's query permission. No fields are sent.
+    Unreadable {
+        /// The missing `spectra.query.*` permission.
+        permission: String,
+        /// Where Request access goes.
+        request_access_href: String,
+    },
+}
+
+/// The panel editor's view of the sources: the ones the viewer can read, and the one it
+/// asked about.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PanelSources {
+    /// Readable registered sources, sorted by name.
+    pub sources: Vec<PanelSourceOption>,
+    /// The asked-about source, when there was one.
+    pub detail: Option<PanelSourceDetail>,
+}
+
+/// A registered schema, as [`build_source_access`] needs it.
+#[cfg_attr(not(feature = "ssr"), allow(dead_code))]
+struct SchemaInfo {
+    name: String,
+    metric: bool,
+    fields: Vec<SourceField>,
+}
+
+/// Whether a schema field's Rust type is a number.
+#[cfg_attr(not(feature = "ssr"), allow(dead_code))]
+fn is_numeric_type(rust_type: &str) -> bool {
+    let inner = rust_type
+        .trim()
+        .strip_prefix("Option<")
+        .and_then(|t| t.strip_suffix('>'))
+        .unwrap_or(rust_type)
+        .trim();
+    matches!(
+        inner,
+        "i8" | "i16"
+            | "i32"
+            | "i64"
+            | "i128"
+            | "isize"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "u128"
+            | "usize"
+            | "f32"
+            | "f64"
+    )
+}
+
+/// The sources `can_read` allows, and the detail for `name`. An unreadable source is left
+/// out of the list and its detail carries only the permission; `request_access_href` is
+/// filled in by the caller.
+#[cfg_attr(not(feature = "ssr"), allow(dead_code))]
+fn build_source_access(
+    schemas: &[SchemaInfo],
+    name: Option<&str>,
+    can_read: impl Fn(&str) -> bool,
+) -> PanelSources {
+    let mut sources: Vec<PanelSourceOption> = schemas
+        .iter()
+        .filter(|s| can_read(&s.name))
+        .map(|s| PanelSourceOption {
+            name: s.name.clone(),
+            metric: s.metric,
+        })
+        .collect();
+    sources.sort_by(|a, b| a.name.cmp(&b.name));
+    let detail = name.map(|name| {
+        if can_read(name) {
+            PanelSourceDetail::Readable {
+                fields: schemas
+                    .iter()
+                    .find(|s| s.name == name)
+                    .map(|s| s.fields.clone()),
+            }
+        } else {
+            PanelSourceDetail::Unreadable {
+                permission: spectra_backend::spectra_query_permission_name(name),
+                request_access_href: String::new(),
+            }
+        }
+    });
+    PanelSources { sources, detail }
+}
+
+/// The panel sources the viewer can read and, for `name`, its fields or the permission the
+/// viewer lacks.
+///
+/// Runs as the session actor: each source's `spectra.query.*` permission is checked with
+/// Gauge before anything about it is returned.
+#[uf_product_macros::server(permission = "QueryTable")]
+pub async fn panel_source_access(
+    /// Table or metric to describe, such as the one a pasted link names.
+    name: Option<String>,
+) -> Result<PanelSources, ServerFnError> {
+    use spectra_backend::dashboards::DashboardError;
+    use spectra_backend::{spectra_query_permission_name, validate_spectra_query_name};
+    use spectra_core::{LoggingKind, SchemaRegistry};
+    use std::collections::BTreeSet;
+
+    use super::dashboards::{session_valence, to_sfe};
+    use super::to_server_fn_error;
+
+    let v = session_valence().await?;
+    if let Some(name) = &name {
+        validate_spectra_query_name(name).map_err(|e| to_server_fn_error(e.into()))?;
+    }
+    let registry = SchemaRegistry::global();
+    let schemas: Vec<SchemaInfo> = registry
+        .list_schemas()
+        .into_iter()
+        .filter_map(|n| registry.get_schema(n))
+        .map(|m| SchemaInfo {
+            name: m.table_or_metric.clone(),
+            metric: matches!(m.logging_kind, LoggingKind::Metric),
+            fields: m
+                .fields
+                .iter()
+                .map(|f| SourceField {
+                    name: f.name.clone(),
+                    numeric: is_numeric_type(&f.rust_type),
+                    pii: f.classification.pii,
+                })
+                .collect(),
+        })
+        .collect();
+
+    let mut readable = BTreeSet::new();
+    for source in schemas
+        .iter()
+        .map(|s| s.name.as_str())
+        .chain(name.as_deref())
+    {
+        if readable.contains(source) {
+            continue;
+        }
+        let allowed = gauge::service::actor_can(&v, &spectra_query_permission_name(source))
+            .await
+            .map_err(|e| to_sfe(DashboardError::store(e)))?;
+        if allowed {
+            readable.insert(source.to_string());
+        }
+    }
+
+    let mut access = build_source_access(&schemas, name.as_deref(), |n| readable.contains(n));
+    if let Some(PanelSourceDetail::Unreadable {
+        permission,
+        request_access_href: href,
+    }) = &mut access.detail
+    {
+        *href = request_access_href(&v, permission).await;
+    }
+    Ok(access)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn field(name: &str, numeric: bool, pii: bool) -> SourceField {
+        SourceField {
+            name: name.into(),
+            numeric,
+            pii,
+        }
+    }
+
+    fn schemas() -> Vec<SchemaInfo> {
+        vec![
+            SchemaInfo {
+                name: "checkout_event".into(),
+                metric: false,
+                fields: vec![
+                    field("status", false, false),
+                    field("amount_cents", true, false),
+                    field("customer_id", false, true),
+                ],
+            },
+            SchemaInfo {
+                name: "api_latency_ms".into(),
+                metric: true,
+                fields: Vec::new(),
+            },
+            SchemaInfo {
+                name: "payroll_event".into(),
+                metric: false,
+                fields: vec![field("salary", true, true)],
+            },
+        ]
+    }
+
+    #[test]
+    fn readable_source_returns_its_fields_and_is_listed() {
+        let access =
+            build_source_access(&schemas(), Some("checkout_event"), |n| n != "payroll_event");
+        assert_eq!(
+            access.sources,
+            vec![
+                PanelSourceOption {
+                    name: "api_latency_ms".into(),
+                    metric: true
+                },
+                PanelSourceOption {
+                    name: "checkout_event".into(),
+                    metric: false
+                },
+            ]
+        );
+        let Some(PanelSourceDetail::Readable {
+            fields: Some(fields),
+        }) = access.detail
+        else {
+            panic!("expected readable fields, got {:?}", access.detail);
+        };
+        assert!(fields.contains(&field("amount_cents", true, false)));
+        assert!(fields.contains(&field("customer_id", false, true)));
+    }
+
+    #[test]
+    fn source_without_read_names_the_permission_and_sends_no_fields() {
+        let access =
+            build_source_access(&schemas(), Some("payroll_event"), |n| n != "payroll_event");
+        assert!(access.sources.iter().all(|s| s.name != "payroll_event"));
+        assert_eq!(
+            access.detail,
+            Some(PanelSourceDetail::Unreadable {
+                permission: "spectra.query.payroll_event".into(),
+                request_access_href: String::new(),
+            })
+        );
+    }
+
+    #[test]
+    fn readable_unregistered_source_has_no_fields_to_check() {
+        let access = build_source_access(&schemas(), Some("e2e.empty_events"), |_| true);
+        assert_eq!(
+            access.detail,
+            Some(PanelSourceDetail::Readable { fields: None })
+        );
+    }
+
+    #[test]
+    fn numeric_types_include_options() {
+        assert!(is_numeric_type("u64"));
+        assert!(is_numeric_type("Option<f64>"));
+        assert!(!is_numeric_type("String"));
+    }
+}

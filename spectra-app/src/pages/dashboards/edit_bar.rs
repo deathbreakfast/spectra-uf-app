@@ -6,7 +6,7 @@ use orbital::components::{Caption1, SpacingSize};
 use orbital::primitives::{
     Badge, BadgeAppearance, BadgeColor, BadgeSize, Button, ButtonAppearance, Card, CardContent,
     Flex, FlexAlign, FlexJustify, FlexWrap, MaterialElevation, Menu, MenuItem, MenuTrigger,
-    Spinner, SpinnerSize, Tooltip,
+    Spinner, SpinnerSize,
 };
 
 use super::edit::PanelEditorStart;
@@ -59,16 +59,11 @@ pub(super) fn EditBar(
                                         "Add panel"
                                     </Button>
                                 </MenuTrigger>
-                                // The panel editor lands next; until then only Text works.
-                                <MenuItem value="build" disabled=true>
-                                    <Tooltip content="Coming soon".to_string()>
-                                        <span data-testid="spectra-edit-add-build">"Build a panel"</span>
-                                    </Tooltip>
+                                <MenuItem value="build">
+                                    <span data-testid="spectra-edit-add-build">"Build a panel"</span>
                                 </MenuItem>
-                                <MenuItem value="link" disabled=true>
-                                    <Tooltip content="Coming soon".to_string()>
-                                        <span data-testid="spectra-edit-add-link">"From a query link"</span>
-                                    </Tooltip>
+                                <MenuItem value="link">
+                                    <span data-testid="spectra-edit-add-link">"From a query link"</span>
                                 </MenuItem>
                                 <MenuItem value="text">
                                     <span data-testid="spectra-edit-add-text-item">"Text"</span>
