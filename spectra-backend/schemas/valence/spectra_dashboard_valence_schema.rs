@@ -6,7 +6,7 @@ valence_schema! {
     SpectraDashboard {
         repository: "https://github.com/unified-field-dev/spectra-uf-app",
         table: "spectra_dashboard",
-        version: "0.1.0",
+        version: "0.2.0",
         database: crate::dashboards::DASHBOARD_STORAGE,
         description: "A saved Spectra dashboard: its title, owner and the queries behind its panels (never query results). The owner and the people it is shared with through its Gauge permissions can open it; editors can save it; only the owner can delete it. When the owner shares it, the row keeps a copy of who it's shared with, so everyone who can open it sees who else has access.",
 
