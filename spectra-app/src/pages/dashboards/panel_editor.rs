@@ -455,7 +455,7 @@ pub(super) fn filled_in_summary(panel: &Panel) -> String {
     let group = panel
         .group_by
         .first()
-        .map_or_default(|g| format!(", grouped by {g}"));
+        .map_or_else(Default::default, |g| format!(", grouped by {g}"));
     format!(
         "{kind} {name}, {}, {}{group}",
         chart_label(panel.chart),
@@ -637,13 +637,16 @@ impl Settings {
             .set(panel.group_by.first().cloned().unwrap_or_default());
         self.filters.set(panel.filters.clone());
         let table = panel.table.clone();
-        self.columns
-            .set(table.as_ref().map_or_default(|t| t.columns.clone()));
+        self.columns.set(
+            table
+                .as_ref()
+                .map_or_else(Default::default, |t| t.columns.clone()),
+        );
         self.sort.set(
             table
                 .as_ref()
                 .and_then(|t| t.sort.as_ref())
-                .map_or_default(|s| sort_key(&s.column, s.descending)),
+                .map_or_else(Default::default, |s| sort_key(&s.column, s.descending)),
         );
         self.rows
             .set(table.as_ref().map_or(DEFAULT_ROWS, |t| t.limit).to_string());
@@ -788,7 +791,7 @@ fn PanelEditorBody(
     let sources = LocalResource::new(move || async move {
         panel_source_access(None)
             .await
-            .map_or_default(|a| a.sources)
+            .map_or_else(|_| Vec::new(), |a| a.sources)
     });
     // Fields of the picked source; stale answers are dropped.
     let fields = RwSignal::new(None::<Vec<SourceField>>);
@@ -1233,8 +1236,9 @@ fn SourceSettings(
 ) -> impl IntoView {
     let field_names = move || {
         fields.with(|f| {
-            f.as_ref()
-                .map_or_default(|f| f.iter().map(|x| x.name.clone()).collect::<Vec<_>>())
+            f.as_ref().map_or_else(Default::default, |f| {
+                f.iter().map(|x| x.name.clone()).collect::<Vec<_>>()
+            })
         })
     };
     let chart_buttons = CHARTS

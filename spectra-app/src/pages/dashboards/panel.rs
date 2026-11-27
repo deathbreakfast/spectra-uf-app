@@ -112,7 +112,9 @@ pub(super) fn DashboardPanel(entry: PanelSlot) -> impl IntoView {
             let window = env.query(&panel).window;
             let origin = window_origin();
             panel_to_link(&panel, window, chrono::Utc::now())
-                .map_or_default(|link| format!("{origin}{}", link.encode()))
+                .map_or_else(Default::default, |link| {
+                    format!("{origin}{}", link.encode())
+                })
         }
     });
     let explore = Memo::new({
