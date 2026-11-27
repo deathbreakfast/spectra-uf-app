@@ -88,6 +88,10 @@ test.describe("pw-spectra-dashboards-share", () => {
     await expect(dialog.getByTestId("spectra-share-copy-link")).toBeVisible();
     await expect(dialog.getByTestId("spectra-share-save")).toHaveCount(0);
     await expect(dialog.getByTestId("spectra-share-viewers")).toHaveCount(0);
+    // The viewer still sees who else has access, read-only.
+    await expect(dialog.getByTestId("spectra-share-readonly-viewers")).toContainText(GROUP);
+    await expect(dialog.getByTestId("spectra-share-readonly-editors")).toHaveCount(0);
+    await expect(dialog.getByTestId("spectra-share-readonly-empty")).toHaveCount(0);
     // A viewer can't delete either.
     await dialog.getByTestId("spectra-share-close").getByRole("button").click();
     await expect(dialog).toBeHidden();

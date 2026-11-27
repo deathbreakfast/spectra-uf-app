@@ -194,10 +194,12 @@ async fn viewer_reads_but_cannot_save_and_outsider_cannot_read() {
 
     let bob_access = sharing::access(&bob, &d.id).await.expect("access");
     assert!(!bob_access.can_edit && !bob_access.can_delete && !bob_access.can_share);
-    assert!(
-        bob_access.viewers.is_empty(),
-        "only the owner sees the share lists"
+    assert_eq!(
+        bob_access.viewers,
+        vec![Principal::User(BOB.into())],
+        "a viewer sees the lists the owner saved"
     );
+    assert_eq!(bob_access.editors, Vec::new());
 
     let mut edit = seen.clone();
     edit.title = "Renamed by a viewer".into();

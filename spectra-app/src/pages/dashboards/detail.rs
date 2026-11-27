@@ -29,7 +29,7 @@ use super::history::{HistoryDrawer, RestoreDialog};
 use super::section::DashboardSection;
 use super::share::ShareDialog;
 use super::toolbar::DashboardToolbar;
-use super::{action_error_text, copy_title, saved_date, version_bar_text, VERSION_QUERY_KEY};
+use super::{action_error_text, saved_date, version_bar_text, VERSION_QUERY_KEY};
 use crate::layout::DashboardCrumb;
 use crate::server::{
     dashboard_error, duplicate_dashboard, get_dashboard, get_dashboard_view, list_versions,
@@ -281,35 +281,12 @@ fn DashboardBody(
     }
     let (state, on_state) = use_view_state();
 
-    let id = dashboard.id.clone();
-    let title = dashboard.title.clone();
-    let navigate = use_navigate();
-    let duplicating = RwSignal::new(false);
-    let duplicate_error = RwSignal::new(None::<String>);
-    let on_duplicate = Callback::new(move |()| {
-        let (id, title, navigate) = (id.clone(), copy_title(&title), navigate.clone());
-        duplicating.set(true);
-        duplicate_error.set(None);
-        leptos::task::spawn_local_scoped(async move {
-            match duplicate_dashboard(id, title).await {
-                Ok(copy) => navigate(
-                    &spectra_dashboard_path(&copy.id),
-                    NavigateOptions::default(),
-                ),
-                Err(e) => duplicate_error.set(Some(format!(
-                    "Couldn't duplicate this dashboard: {}",
-                    action_error_text(&e)
-                ))),
-            }
-            duplicating.set(false);
-        });
-    });
-
     let access = RwSignal::new(access);
     let share_open = RwSignal::new(false);
     let duplicate_open = RwSignal::new(false);
     let history_open = RwSignal::new(false);
     let delete_open = RwSignal::new(false);
+    let restore_open = RwSignal::new(false);
     let restore_target = RwSignal::new(None::<u32>);
     let path = spectra_dashboard_path(&dashboard.id);
     let navigate = use_navigate();
@@ -328,7 +305,10 @@ fn DashboardBody(
         back_to_current.run(());
         refresh.update(|n| *n += 1);
     });
-    let on_restore = Callback::new(move |n: u32| restore_target.set(Some(n)));
+    let on_restore = Callback::new(move |n: u32| {
+        restore_target.set(Some(n));
+        restore_open.set(true);
+    });
 
     provide_context(PanelEnv {
         dashboard_id: dashboard.id.clone(),
@@ -349,11 +329,6 @@ fn DashboardBody(
     view! {
         <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
             <DashboardHeader dashboard=dashboard.clone() favourite=favourite />
-            {move || duplicate_error.get().map(|message| view! {
-                <div data-testid="spectra-dashboard-duplicate-error">
-                    <MessageBar intent=MessageBarIntent::Error>{message}</MessageBar>
-                </div>
-            })}
             {old_version.map(|version| {
                 let n = version.number;
                 view! {
@@ -389,10 +364,7 @@ fn DashboardBody(
                         </MessageBarBody>
                         <MessageBarActions>
                             <span data-testid="spectra-dashboard-builtin-duplicate">
-                                <Button
-                                    loading=duplicating
-                                    on_click=Callback::new(move |_| on_duplicate.run(()))
-                                >
+                                <Button on_click=Callback::new(move |_| duplicate_open.set(true))>
                                     "Duplicate"
                                 </Button>
                             </span>
@@ -451,7 +423,8 @@ fn DashboardBody(
                 on_restore=on_restore
             />
             <RestoreDialog
-                target=restore_target
+                open=restore_open
+                target=restore_target.read_only()
                 dashboard_id=dashboard_id.clone()
                 on_restored=on_restored
             />

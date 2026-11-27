@@ -230,9 +230,15 @@ test.describe("pw-spectra-dashboards", () => {
     });
 
     await page.getByTestId("spectra-dashboard-builtin-duplicate").getByRole("button").click();
+    const dialog = page.getByTestId("spectra-duplicate-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId("spectra-duplicate-name").locator("input")).toHaveValue(
+      "Photon throughput (copy)",
+    );
+    await dialog.getByTestId("spectra-duplicate-submit").getByRole("button").click();
     await expect(page).not.toHaveURL(new RegExp(`/${BUILTIN}$`), { timeout: 60_000 });
     await expect(page.getByTestId("spectra-dashboard-title")).toHaveText(
-      "Copy of Photon throughput",
+      "Photon throughput (copy)",
       { timeout: 60_000 },
     );
     await expect(page.getByTestId("spectra-dashboard-builtin-bar")).toHaveCount(0);
