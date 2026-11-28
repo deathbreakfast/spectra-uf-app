@@ -269,12 +269,45 @@ fn variable_gaps(
         .collect()
 }
 
-/// While `dirty`, ask before the tab closes or reloads, and hold in-app link clicks, handing
-/// the link to `on_hold` so the page can ask first. Leptos's router follows links from a click listener
-/// on the window, so a listener on the document runs first and can stop it. Back and
-/// forward can't be held this way.
-fn guard_leaving(dirty: Memo<bool>, on_hold: Callback<String>) {
+/// Where a held navigation was going.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Leave {
+    /// An in-app link to this path.
+    Link(String),
+    /// The browser's Back button.
+    Back,
+}
+
+/// Push a history entry at the current URL, so the next Back stays on the edit page.
+fn push_guard_entry() {
+    if let Ok(history) = window().history() {
+        _ = history.push_state_with_url(&wasm_bindgen::JsValue::NULL, "", None);
+    }
+}
+
+/// While `dirty`, ask before the tab closes or reloads, and hold in-app link clicks and the
+/// Back button, handing each to `on_hold` so the page can ask first. Leptos's router follows
+/// links from a click listener on the window, so a listener on the document runs first and
+/// can stop it. `popstate` can't be cancelled, so the first change pushes a guard entry at
+/// the same URL: Back then pops to the edit page itself, which the router treats as a no-op,
+/// and the page asks before going back once more.
+fn guard_leaving(dirty: Memo<bool>, on_hold: Callback<Leave>) {
+    let guarded = StoredValue::new(false);
     Effect::new(move |_| {
+        if dirty.get() && !guarded.get_value() {
+            guarded.set_value(true);
+            push_guard_entry();
+        }
+    });
+    Effect::new(move |_| {
+        let back = window_event_listener(ev::popstate, move |_| {
+            if dirty.try_get_untracked().unwrap_or(false) {
+                on_hold.run(Leave::Back);
+            } else {
+                // The guard entry is used up; the next change pushes a new one.
+                guarded.try_set_value(false);
+            }
+        });
         let unload = window_event_listener(ev::beforeunload, move |e| {
             if dirty.try_get_untracked().unwrap_or(false) {
                 e.prevent_default();
@@ -319,12 +352,13 @@ fn guard_leaving(dirty: Memo<bool>, on_hold: Callback<String>) {
                     return;
                 }
                 e.prevent_default();
-                on_hold.run(href);
+                on_hold.run(Leave::Link(href));
             });
         let listener: web_sys::js_sys::Function = on_click.into_js_value().unchecked_into();
         _ = document().add_event_listener_with_callback("click", &listener);
         let listener = StoredValue::new_local(listener);
         on_cleanup(move || {
+            back.remove();
             unload.remove();
             listener.try_with_value(|f| {
                 _ = document().remove_event_listener_with_callback("click", f);
@@ -424,12 +458,12 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let discard_open = RwSignal::new(false);
     let compare_open = RwSignal::new(false);
     // The link a held click was going to; the guard sets it and opens the dialog together.
-    let leave_href = StoredValue::new(None::<String>);
+    let leave_to = StoredValue::new(None::<Leave>);
     let leave_open = RwSignal::new(false);
     guard_leaving(
         dirty,
-        Callback::new(move |href: String| {
-            leave_href.set_value(Some(href));
+        Callback::new(move |to: Leave| {
+            leave_to.set_value(Some(to));
             leave_open.set(true);
         }),
     );
@@ -475,18 +509,27 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
     let confirm_leave = Callback::new({
         let navigate = navigate.clone();
         move |()| {
-            let href = leave_href.get_value();
+            let to = leave_to.get_value();
             draft.set(base.get_untracked());
             leave_open.set(false);
-            leave_href.set_value(None);
-            if let Some(href) = href {
-                navigate(&href, NavigateOptions::default());
+            leave_to.set_value(None);
+            match to {
+                Some(Leave::Link(href)) => navigate(&href, NavigateOptions::default()),
+                Some(Leave::Back) => {
+                    if let Ok(history) = window().history() {
+                        _ = history.back();
+                    }
+                }
+                None => {}
             }
         }
     });
     let keep_editing = Callback::new(move |()| {
         leave_open.set(false);
-        leave_href.set_value(None);
+        if leave_to.get_value() == Some(Leave::Back) {
+            push_guard_entry();
+        }
+        leave_to.set_value(None);
     });
 
     // The toolbar is rebuilt only when what it shows from the draft changes.
