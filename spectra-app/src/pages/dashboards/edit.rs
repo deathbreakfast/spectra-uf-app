@@ -644,21 +644,25 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
                 }
                 .into_any(),
                 None if wide.get() => view! {
-                    <Show
-                        when=move || section_ids.with(|s| !s.is_empty())
-                        fallback=|| view! { <EmptyDraft /> }
-                    >
-                        <For each=move || section_ids.get() key=|id| id.clone() let:section_id>
-                            <Flex vertical=true gap=SpacingSize::Size80.flex_gap()>
-                                <EditSectionHeader draft=draft section_id=section_id.clone() renaming=renaming />
-                                <EditGrid
-                                    draft=draft
-                                    section_id=section_id
-                                    on_open_panel_editor=on_open_panel_editor
-                                />
-                            </Flex>
-                        </For>
-                    </Show>
+                    <div id="spectra-dashboard-grid">
+                        <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
+                            <Show
+                                when=move || section_ids.with(|s| !s.is_empty())
+                                fallback=|| view! { <EmptyDraft /> }
+                            >
+                                <For each=move || section_ids.get() key=|id| id.clone() let:section_id>
+                                    <Flex vertical=true gap=SpacingSize::Size80.flex_gap()>
+                                        <EditSectionHeader draft=draft section_id=section_id.clone() renaming=renaming />
+                                        <EditGrid
+                                            draft=draft
+                                            section_id=section_id
+                                            on_open_panel_editor=on_open_panel_editor
+                                        />
+                                    </Flex>
+                                </For>
+                            </Show>
+                        </Flex>
+                    </div>
                 }
                 .into_any(),
                 None => view! {
@@ -667,14 +671,18 @@ fn DashboardEditor(view: DashboardView) -> impl IntoView {
                             "Drag and resize need a wider screen. Here you can reorder, edit, add and remove panels."
                         </MessageBar>
                     </div>
-                    <Show
-                        when=move || section_ids.with(|s| !s.is_empty())
-                        fallback=|| view! { <EmptyDraft /> }
-                    >
-                        <For each=move || section_ids.get() key=|id| id.clone() let:section_id>
-                            <PhoneSection draft=draft section_id=section_id on_open_panel_editor=on_open_panel_editor />
-                        </For>
-                    </Show>
+                    <div id="spectra-dashboard-grid">
+                        <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
+                            <Show
+                                when=move || section_ids.with(|s| !s.is_empty())
+                                fallback=|| view! { <EmptyDraft /> }
+                            >
+                                <For each=move || section_ids.get() key=|id| id.clone() let:section_id>
+                                    <PhoneSection draft=draft section_id=section_id on_open_panel_editor=on_open_panel_editor />
+                                </For>
+                            </Show>
+                        </Flex>
+                    </div>
                 }
                 .into_any(),
             }}

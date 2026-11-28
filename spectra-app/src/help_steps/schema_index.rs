@@ -98,7 +98,7 @@ pub fn SpectraSchemaOpenExploreHelp() -> impl IntoView {
 pub fn SpectraSchemaNavHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-schema-nav",
-        "Use the left menu to open Home for the catalog pulse, or stay on Schemas for this searchable list.",
+        "Home has the catalog's counts, Schemas lists every table and metric, Dashboards holds saved views, and Callsites shows which code writes each one.",
         Some("Replay anytime: Help → Replay this route."),
         &[],
     )

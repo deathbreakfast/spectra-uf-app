@@ -140,7 +140,7 @@ pub(super) fn DashboardToolbar(
     };
 
     view! {
-        <div data-testid="spectra-dashboard-toolbar">
+        <div id="spectra-dashboard-toolbar" data-testid="spectra-dashboard-toolbar">
             <Card>
                 <CardContent>
                     <Flex gap=SpacingSize::Size120.flex_gap() align=FlexAlign::End wrap=FlexWrap::Wrap>

@@ -45,30 +45,32 @@ pub(super) fn EditBar(
                         wrap=FlexWrap::Wrap
                     >
                         <Flex gap=SpacingSize::Size80.flex_gap() align=FlexAlign::Center wrap=FlexWrap::Wrap>
-                            <Menu
-                                data_testid="spectra-edit-add-panel"
-                                on_select=move |choice: &str| match choice {
-                                    "build" => on_open_panel_editor.run(PanelEditorStart::Build),
-                                    "link" => on_open_panel_editor.run(PanelEditorStart::FromLink),
-                                    "text" => on_open_panel_editor.run(PanelEditorStart::Text),
-                                    _ => {}
-                                }
-                            >
-                                <MenuTrigger slot>
-                                    <Button appearance=ButtonAppearance::Primary icon=icondata::AiDownOutlined>
-                                        "Add panel"
-                                    </Button>
-                                </MenuTrigger>
-                                <MenuItem value="build">
-                                    <span data-testid="spectra-edit-add-build">"Build a panel"</span>
-                                </MenuItem>
-                                <MenuItem value="link">
-                                    <span data-testid="spectra-edit-add-link">"From a query link"</span>
-                                </MenuItem>
-                                <MenuItem value="text">
-                                    <span data-testid="spectra-edit-add-text-item">"Text"</span>
-                                </MenuItem>
-                            </Menu>
+                            <span id="spectra-dashboard-add-panel">
+                                <Menu
+                                    data_testid="spectra-edit-add-panel"
+                                    on_select=move |choice: &str| match choice {
+                                        "build" => on_open_panel_editor.run(PanelEditorStart::Build),
+                                        "link" => on_open_panel_editor.run(PanelEditorStart::FromLink),
+                                        "text" => on_open_panel_editor.run(PanelEditorStart::Text),
+                                        _ => {}
+                                    }
+                                >
+                                    <MenuTrigger slot>
+                                        <Button appearance=ButtonAppearance::Primary icon=icondata::AiDownOutlined>
+                                            "Add panel"
+                                        </Button>
+                                    </MenuTrigger>
+                                    <MenuItem value="build">
+                                        <span data-testid="spectra-edit-add-build">"Build a panel"</span>
+                                    </MenuItem>
+                                    <MenuItem value="link">
+                                        <span data-testid="spectra-edit-add-link">"From a query link"</span>
+                                    </MenuItem>
+                                    <MenuItem value="text">
+                                        <span data-testid="spectra-edit-add-text-item">"Text"</span>
+                                    </MenuItem>
+                                </Menu>
+                            </span>
                             <span data-testid="spectra-edit-add-section">
                                 <Button
                                     icon=icondata::AiPlusOutlined

@@ -5,6 +5,8 @@
 
 mod app;
 #[cfg(feature = "ssr")]
+mod e2e_schemas;
+#[cfg(feature = "ssr")]
 mod e2e_spectra;
 #[cfg(feature = "ssr")]
 mod e2e_valence;
