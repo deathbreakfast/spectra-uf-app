@@ -13,6 +13,7 @@ use spectra_backend::dashboards::view::{explore_href, panel_caption, panel_sourc
 use spectra_backend::dashboards::{ChartKind, Panel, PanelSource};
 
 use super::detail::PanelEnv;
+use super::panel_editor::panel_to_link;
 use super::panels::{LockedPanel, PanelBody, PanelBodySkeleton, TextPanel};
 use crate::server::{query_dashboard_panel, PanelData};
 
@@ -57,11 +58,16 @@ impl PanelSlot {
 }
 
 /// The reason a panel failed, without the server-function framing.
-fn failure_reason(err: &ServerFnError) -> String {
+pub(super) fn failure_reason(err: &ServerFnError) -> String {
     match err {
         ServerFnError::ServerError(message) => message.clone(),
         other => other.to_string(),
     }
+}
+
+/// The page's origin, such as `https://example.com`; empty when there's no window.
+fn window_origin() -> String {
+    window().location().origin().unwrap_or_default()
 }
 
 /// `"$host"`, `"$host and $region"`.
@@ -94,9 +100,23 @@ pub(super) fn DashboardPanel(entry: PanelSlot) -> impl IntoView {
     } = entry;
     let as_table = RwSignal::new(false);
     let link_open = RwSignal::new(false);
+    let query_link_open = RwSignal::new(false);
     let location = use_location();
     let navigate = use_navigate();
 
+    // The panel's own query as an explorer link, over the window it shows now. Dashboard
+    // filters aren't in it, so pasting it back gives the same panel settings.
+    let query_link = Memo::new({
+        let (panel, env) = (panel.clone(), env.clone());
+        move |_| {
+            let window = env.query(&panel).window;
+            let origin = window_origin();
+            panel_to_link(&panel, window, chrono::Utc::now())
+                .map_or_else(Default::default, |link| {
+                    format!("{origin}{}", link.encode())
+                })
+        }
+    });
     let explore = Memo::new({
         let panel = panel.clone();
         move |_| {
@@ -113,7 +133,7 @@ pub(super) fn DashboardPanel(entry: PanelSlot) -> impl IntoView {
         } else {
             format!("?{}", search.trim_start_matches('?'))
         };
-        let origin = window().location().origin().unwrap_or_default();
+        let origin = window_origin();
         format!(
             "{origin}{}{query}#panel-{panel_id}",
             location.pathname.get()
@@ -213,6 +233,7 @@ pub(super) fn DashboardPanel(entry: PanelSlot) -> impl IntoView {
                                     }
                                     "table" => as_table.update(|t| *t = !*t),
                                     "link" => link_open.set(true),
+                                    "query-link" => query_link_open.set(true),
                                     _ => {}
                                 }
                             >
@@ -228,6 +249,7 @@ pub(super) fn DashboardPanel(entry: PanelSlot) -> impl IntoView {
                                     {move || if as_table.get() { "View as chart" } else { "View as table" }}
                                 </MenuItem>
                                 <MenuItem value="link">"Copy link to panel"</MenuItem>
+                                <MenuItem value="query-link">"Copy query link"</MenuItem>
                             </Menu>
                         })}
                     </CardHeaderAction>
@@ -245,6 +267,25 @@ pub(super) fn DashboardPanel(entry: PanelSlot) -> impl IntoView {
                                     <Button
                                         appearance=ButtonAppearance::Subtle
                                         on_click=Callback::new(move |_| link_open.set(false))
+                                    >
+                                        "Done"
+                                    </Button>
+                                </Flex>
+                            </div>
+                        </Show>
+                        <Show when=move || query_link_open.get()>
+                            <div data-testid="spectra-dashboard-panel-query-link">
+                                <Flex gap=SpacingSize::Size80.flex_gap() align=FlexAlign::Center>
+                                    <span data-testid="spectra-dashboard-panel-query-link-text">
+                                        <Caption1>{move || query_link.get()}</Caption1>
+                                    </span>
+                                    <CopyButton
+                                        text=Signal::derive(move || query_link.get())
+                                        label="Copy query link".to_string()
+                                    />
+                                    <Button
+                                        appearance=ButtonAppearance::Subtle
+                                        on_click=Callback::new(move |_| query_link_open.set(false))
                                     >
                                         "Done"
                                     </Button>

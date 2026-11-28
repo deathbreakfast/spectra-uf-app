@@ -20,7 +20,7 @@ use orbital::components::{
 };
 use orbital::primitives::{
     Body1, Button, ButtonAppearance, ButtonSize, Flex, FlexAlign, FlexJustify, Input, InputBind,
-    InputEvents, Menu, MenuItem, MenuTrigger, Tooltip,
+    InputEvents, Menu, MenuItem, MenuTrigger,
 };
 use spectra_backend::dashboards::view::panel_caption;
 use spectra_backend::dashboards::{
@@ -277,49 +277,26 @@ fn with_section(draft: RwSignal<Dashboard>, section_id: &str, f: impl FnOnce(&mu
     });
 }
 
-const fn is_text(panel: &Panel) -> bool {
-    matches!(panel.source, PanelSource::Text { .. })
-}
-
-/// Edit for a text panel opens the text dialog; other panels wait for the panel editor.
+/// Edit opens the text drawer for a text panel and the panel editor for the rest.
 #[component]
 fn PanelEditButton(
     panel_id: String,
     title: Signal<String>,
-    text: bool,
     on_open_panel_editor: Callback<PanelEditorStart>,
 ) -> impl IntoView {
     let label = move || format!("Edit {}", title.get());
-    if text {
-        view! {
-            <span data-testid="spectra-edit-panel-edit">
-                <Button
-                    appearance=ButtonAppearance::Subtle
-                    size=ButtonSize::Small
-                    icon=icondata::AiEditOutlined
-                    attr:aria-label=label
-                    on_click=Callback::new(move |_| {
-                        on_open_panel_editor.run(PanelEditorStart::Edit(panel_id.clone()));
-                    })
-                />
-            </span>
-        }
-        .into_any()
-    } else {
-        view! {
-            <Tooltip content="Coming soon".to_string()>
-                <span data-testid="spectra-edit-panel-edit">
-                    <Button
-                        appearance=ButtonAppearance::Subtle
-                        size=ButtonSize::Small
-                        icon=icondata::AiEditOutlined
-                        disabled_focusable=true
-                        attr:aria-label=label
-                    />
-                </span>
-            </Tooltip>
-        }
-        .into_any()
+    view! {
+        <span data-testid="spectra-edit-panel-edit">
+            <Button
+                appearance=ButtonAppearance::Subtle
+                size=ButtonSize::Small
+                icon=icondata::AiEditOutlined
+                attr:aria-label=label
+                on_click=Callback::new(move |_| {
+                    on_open_panel_editor.run(PanelEditorStart::Edit(panel_id.clone()));
+                })
+            />
+        </span>
     }
 }
 
@@ -340,7 +317,7 @@ pub(super) fn EditGrid(
     draft: RwSignal<Dashboard>,
     /// The section shown.
     section_id: String,
-    /// Opens the panel editor (or, for now, the text dialog).
+    /// Opens the panel editor, or the text drawer for a text panel.
     on_open_panel_editor: Callback<PanelEditorStart>,
 ) -> impl IntoView {
     let grid_ref = NodeRef::<Div>::new();
@@ -505,7 +482,6 @@ fn EditCell(
         })
     });
     let caption = move || panel.with(|p| p.as_ref().map_or_else(String::new, panel_caption));
-    let text = panel.with_untracked(|p| p.as_ref().is_some_and(is_text));
     let style = move || {
         let l = layout.get();
         let (border, background) = if dragging.get() {
@@ -581,7 +557,6 @@ fn EditCell(
                     <PanelEditButton
                         panel_id=panel_id.clone()
                         title=title
-                        text=text
                         on_open_panel_editor=on_open_panel_editor
                     />
                     <span data-testid="spectra-edit-panel-remove">
@@ -823,7 +798,7 @@ pub(super) fn PhoneSectionList(
     draft: RwSignal<Dashboard>,
     /// The section shown.
     section_id: String,
-    /// Opens the panel editor (or, for now, the text dialog).
+    /// Opens the panel editor, or the text drawer for a text panel.
     on_open_panel_editor: Callback<PanelEditorStart>,
 ) -> impl IntoView {
     let sid = StoredValue::new(section_id.clone());
@@ -890,7 +865,6 @@ fn PhoneRow(
         panel.title.clone()
     };
     let label = StoredValue::new(title.clone());
-    let text = is_text(&panel);
     let row_id = format!("spectra-edit-row-{}", panel.id);
     view! {
         <div data-testid=row_id data-index=index.to_string()>
@@ -921,7 +895,6 @@ fn PhoneRow(
                         <PanelEditButton
                             panel_id=id.get_value()
                             title=Signal::derive(move || label.get_value())
-                            text=text
                             on_open_panel_editor=on_open_panel_editor
                         />
                         <span data-testid="spectra-edit-panel-remove">

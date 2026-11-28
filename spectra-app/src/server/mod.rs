@@ -47,7 +47,8 @@ mod error;
 pub use callsite_graph::{get_callsite_graph, MAX_CALLSITE_WINDOW_HOURS};
 pub use dashboard::{get_spectra_dashboard_summary, SpectraDashboardSummary};
 pub use dashboard_view::{
-    get_dashboard_view, query_dashboard_panel, DashboardView, PanelData, PanelQuery,
+    get_dashboard_view, panel_source_access, query_dashboard_panel, DashboardView, PanelData,
+    PanelQuery, PanelSourceDetail, PanelSourceOption, PanelSources, SourceField,
 };
 pub use dashboards::{
     create_dashboard, dashboard_access, dashboard_error, delete_dashboard, duplicate_dashboard,

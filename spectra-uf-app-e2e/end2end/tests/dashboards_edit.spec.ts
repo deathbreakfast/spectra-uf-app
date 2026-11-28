@@ -66,6 +66,30 @@ function bar(page: Page) {
   return page.getByTestId("spectra-edit-bar");
 }
 
+const EVENT_TABLE = "platform_smoke_event";
+const NOT_A_LINK =
+  "That isn't a Spectra query link. Paste one from the event explorer, the metric explorer or a saved query.";
+
+/** An event-explorer link to the seeded table, as a teammate would paste it. */
+function eventLink(query: string) {
+  return `http://localhost:3000/spectra/schema/${EVENT_TABLE}/explore?${query}`;
+}
+
+function editor(page: Page) {
+  return page.getByTestId("spectra-panel-editor");
+}
+
+function linkBox(page: Page) {
+  return editor(page).getByTestId("spectra-panel-editor-link").locator("textarea");
+}
+
+/** Add panel › From a query link. */
+async function openFromLink(page: Page) {
+  await bar(page).getByRole("button", { name: "Add panel" }).click();
+  await page.getByRole("menuitem", { name: "From a query link" }).click();
+  await expect(editor(page)).toBeVisible({ timeout: 30_000 });
+}
+
 test.describe("pw-spectra-dashboards-edit", () => {
   test.describe.configure({ timeout: 180_000 });
 
@@ -363,5 +387,160 @@ test.describe("pw-spectra-dashboards-edit", () => {
       timeout: 60_000,
     });
     await expect(page.getByTestId("spectra-edit-bar")).toHaveCount(0);
+  });
+
+  test("pw-spectra-dashboards-edit-panel-from-link-happy", async ({ page }) => {
+    const { id, version } = await freshCopy(page);
+    await openEdit(page, id);
+    await openFromLink(page);
+
+    const panelEditor = editor(page);
+    await expect(linkBox(page)).toBeFocused();
+    await expect(panelEditor.getByTestId("spectra-panel-editor-link-caption")).toContainText(
+      "Copy one with the link icon next to an explorer's title",
+    );
+    await expect(panelEditor.getByTestId("spectra-panel-editor-preview-blank")).toContainText(
+      "Nothing to preview yet",
+    );
+
+    await linkBox(page).fill(eventLink("window=6h&view=bar&measure=count&group=message"));
+    const filled = panelEditor.getByTestId("spectra-panel-editor-link-filled");
+    await expect(filled).toHaveAttribute("data-partial", "false", { timeout: 60_000 });
+    await expect(filled).toContainText("Filled in from the link");
+    await expect(filled).toContainText(
+      `Event table ${EVENT_TABLE}, Bar, Count, grouped by message`,
+    );
+    await expect(panelEditor.getByTestId("spectra-panel-editor-keep-window")).toContainText(
+      "Keep the link's window instead (last 6 hours)",
+    );
+    await expect(
+      panelEditor.getByTestId("spectra-panel-editor-preview").getByTestId("spectra-event-bar-chart"),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await panelEditor.getByTestId("spectra-panel-editor-title").locator("input").fill("By message");
+    await panelEditor.getByTestId("spectra-panel-editor-apply").getByRole("button").click();
+    await expect(editor(page)).toHaveCount(0);
+    await expect(cell(page, "panel-1")).toContainText("By message");
+
+    await saveAndExpectVersion(page, version + 1);
+    await openDashboard(page, id);
+    const added = page.getByTestId("spectra-dashboard-panel-panel-1");
+    await expect(added).toContainText("By message");
+    await expect(added.getByTestId("spectra-event-bar-chart")).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("pw-spectra-dashboards-edit-panel-link-unknown-field-sad", async ({ page }) => {
+    const { id } = await freshCopy(page);
+    await openEdit(page, id);
+    await openFromLink(page);
+    const panelEditor = editor(page);
+
+    // Not a Spectra link: the field says so and nothing else changes.
+    await linkBox(page).fill("https://wiki.example.com/Checkout_runbook");
+    await expect(panelEditor.getByText(NOT_A_LINK)).toBeVisible();
+    await expect(panelEditor.getByTestId("spectra-panel-editor-link-filled")).toHaveCount(0);
+    await expect(panelEditor.getByTestId("spectra-panel-editor-preview-blank")).toBeVisible();
+    await expect(
+      panelEditor.getByTestId("spectra-panel-editor-apply").getByRole("button"),
+    ).toBeDisabled();
+
+    // A field the table doesn't have is named, and the rest of the link is used.
+    await linkBox(page).fill(eventLink("view=bar&group=customer_name"));
+    const filled = panelEditor.getByTestId("spectra-panel-editor-link-filled");
+    await expect(filled).toHaveAttribute("data-partial", "true", { timeout: 60_000 });
+    await expect(panelEditor.getByTestId("spectra-panel-editor-link-gap")).toHaveText(
+      `\`customer_name\` isn't a field of ${EVENT_TABLE}, so Group by is empty.`,
+    );
+    await expect(filled).toContainText(`Event table ${EVENT_TABLE}, Bar, Count`);
+    await expect(
+      panelEditor.getByTestId("spectra-panel-editor-apply").getByRole("button"),
+    ).toBeEnabled();
+  });
+
+  test("pw-spectra-dashboards-edit-panel-link-unreadable-sad", async ({ page }) => {
+    const { id } = await freshCopy(page);
+    // Same person, without the event table's query permission.
+    await seedAuth(page, "admin_partial");
+    await openEdit(page, id);
+    await openFromLink(page);
+    const panelEditor = editor(page);
+
+    await linkBox(page).fill(eventLink("view=bar&group=message"));
+    const denied = panelEditor.getByTestId("spectra-panel-editor-link-unreadable");
+    await expect(denied).toContainText(`You can't read ${EVENT_TABLE}`, { timeout: 60_000 });
+    await expect(denied).toContainText(`spectra.query.${EVENT_TABLE}`);
+    await expect(denied.getByRole("link", { name: "Request access" })).toHaveCount(1);
+    await expect(panelEditor.getByTestId("spectra-panel-editor-link-filled")).toHaveCount(0);
+    await expect(
+      panelEditor.getByTestId("spectra-panel-editor-source").locator("input"),
+    ).toHaveValue("");
+    await expect(panelEditor.getByTestId("spectra-panel-editor-preview-blank")).toBeVisible();
+    await expect(
+      panelEditor.getByTestId("spectra-panel-editor-apply").getByRole("button"),
+    ).toBeDisabled();
+  });
+
+  test("pw-spectra-dashboards-edit-text-panel-round-trip-happy", async ({ page }) => {
+    const { id, version } = await freshCopy(page);
+    await openEdit(page, id);
+
+    await page.getByTestId("spectra-edit-add-text").getByRole("button").click();
+    const text = page.getByTestId("spectra-edit-text-dialog");
+    await text.getByTestId("spectra-edit-text-title").locator("input").fill("Runbook");
+    await text
+      .getByTestId("spectra-edit-text-markdown")
+      .locator("textarea")
+      .fill("Restart the **worker** first.");
+    await expect(text.getByTestId("spectra-edit-text-preview")).toContainText(
+      "Restart the worker first.",
+    );
+    await text.getByTestId("spectra-edit-text-apply").getByRole("button").click();
+    await expect(cell(page, "panel-1")).toContainText("Runbook");
+
+    await cell(page, "panel-1").getByTestId("spectra-edit-panel-edit").getByRole("button").click();
+    const again = page.getByTestId("spectra-edit-text-dialog");
+    const markdown = again.getByTestId("spectra-edit-text-markdown").locator("textarea");
+    await expect(markdown).toHaveValue("Restart the **worker** first.");
+    await markdown.fill("Restart the **queue**, then the worker.");
+    await again.getByTestId("spectra-edit-text-apply").getByRole("button").click();
+
+    await saveAndExpectVersion(page, version + 1);
+    await openDashboard(page, id);
+    await expect(
+      page.getByTestId("spectra-dashboard-panel-panel-1").getByTestId("spectra-dashboard-panel-markdown"),
+    ).toContainText("Restart the queue, then the worker.");
+  });
+
+  test("pw-spectra-dashboards-edit-copy-query-link-round-trip-happy", async ({ page }) => {
+    const { id } = await freshCopy(page);
+    const overTime = page.getByTestId("spectra-dashboard-panel-over-time");
+    await overTime.getByRole("button", { name: "Panel actions" }).click();
+    await page.getByRole("menuitem", { name: "Copy query link" }).click();
+    const shown = overTime.getByTestId("spectra-dashboard-panel-query-link-text");
+    await expect(shown).toContainText(`/spectra/schema/${EVENT_TABLE}/explore?`);
+    const link = (await shown.textContent())!.trim();
+
+    await openEdit(page, id);
+    await openFromLink(page);
+    await linkBox(page).fill(link);
+    const filled = editor(page).getByTestId("spectra-panel-editor-link-filled");
+    await expect(filled).toHaveAttribute("data-partial", "false", { timeout: 60_000 });
+    await expect(filled).toContainText(`Event table ${EVENT_TABLE}, Time series, Count`);
+  });
+
+  test("pw-spectra-dashboards-edit-panel-editor-phone-happy", async ({ page }) => {
+    const { id } = await freshCopy(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openEdit(page, id);
+    await openFromLink(page);
+
+    // Settings stack above the preview, and nothing scrolls sideways.
+    const link = await editor(page).getByTestId("spectra-panel-editor-link").boundingBox();
+    const preview = await editor(page).getByTestId("spectra-panel-editor-preview").boundingBox();
+    expect(link && preview && preview.y > link.y).toBeTruthy();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 });
