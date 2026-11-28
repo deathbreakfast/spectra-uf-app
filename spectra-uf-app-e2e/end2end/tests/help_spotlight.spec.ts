@@ -112,4 +112,69 @@ test.describe("help-spotlight", () => {
     });
     await completeVisibleTour(page);
   });
+
+  test("help-spotlight-dashboards-list-green", async ({ page }) => {
+    await seedAuth(page, "admin", { skipData: true, help_tour: true });
+    await page.goto("/spectra/dashboards", { waitUntil: "domcontentloaded" });
+    await waitForHydrated(page);
+    await expect(page.getByTestId("help-step-spectra-dashboards-tabs")).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.locator("#spectra-dashboards-tabs")).toHaveCount(1);
+    await expect(page.locator("#spectra-dashboards-new")).toHaveCount(1);
+    // The nav step rings the left menu, so open it (the tour skips a hidden target).
+    const expand = page.getByRole("button", { name: "Expand navigation" });
+    if (await expand.isVisible().catch(() => false)) {
+      await expand.evaluate((el: HTMLElement) => el.click());
+    }
+    await expect(page.locator("#spectra-nav")).toBeVisible();
+
+    const next = page
+      .locator('[data-testid="spotlight-footer"]:visible')
+      .getByTestId("spotlight-tour-next");
+    await next.evaluate((el: HTMLElement) => el.click());
+    await expect(page.getByTestId("help-step-spectra-dashboards-new")).toContainText(
+      "A new dashboard is private until you share it.",
+    );
+    await next.evaluate((el: HTMLElement) => el.click());
+    await expect(page.getByTestId("help-step-spectra-dashboards-nav")).toContainText(
+      "Dashboards holds saved views, and Callsites shows which code writes each one.",
+    );
+    await completeVisibleTour(page);
+  });
+
+  test("help-spotlight-dashboard-detail-green", async ({ page }) => {
+    const seeded = await seedAuth(page, "admin", { help_tour: true });
+    await page.goto(`/spectra/dashboards/${seeded.fixtures.checkout_dashboard_id}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForHydrated(page);
+    await expect(page.getByTestId("help-step-spectra-dashboard-toolbar")).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByTestId("help-step-spectra-dashboard-toolbar")).toContainText(
+      "$host: a variable",
+    );
+    await expect(page.locator("#spectra-dashboard-toolbar")).toHaveCount(1);
+    await expect(page.locator("#spectra-dashboard-panels")).toHaveCount(1);
+    await completeVisibleTour(page);
+  });
+
+  test("help-spotlight-dashboard-edit-green", async ({ page }) => {
+    const seeded = await seedAuth(page, "admin", {
+      skipData: true,
+      freshDashboard: true,
+      help_tour: true,
+    });
+    await page.goto(`/spectra/dashboards/${seeded.fixtures.fresh_dashboard_id}/edit`, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForHydrated(page);
+    await expect(page.getByTestId("help-step-spectra-dashboard-grid")).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.locator("#spectra-dashboard-grid")).toHaveCount(1);
+    await expect(page.locator("#spectra-dashboard-add-panel")).toHaveCount(1);
+    await completeVisibleTour(page);
+  });
 });

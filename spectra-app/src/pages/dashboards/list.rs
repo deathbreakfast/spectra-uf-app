@@ -263,7 +263,7 @@ pub fn DashboardIndexPage() -> impl IntoView {
             <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
                 <Flex justify=FlexJustify::SpaceBetween align=FlexAlign::Center>
                     <Title3>"Dashboards"</Title3>
-                    <span data-testid="spectra-dashboards-new">
+                    <span id="spectra-dashboards-new" data-testid="spectra-dashboards-new">
                         <Button
                             appearance=ButtonAppearance::Primary
                             on_click=Callback::new(move |_| new_open.set(true))
@@ -272,7 +272,7 @@ pub fn DashboardIndexPage() -> impl IntoView {
                         </Button>
                     </span>
                 </Flex>
-                <div data-testid="spectra-dashboards-tabs">
+                <div id="spectra-dashboards-tabs" data-testid="spectra-dashboards-tabs">
                     <TabList selected_value=tab>
                         <Tab value=TAB_MINE>
                             <span data-testid="spectra-dashboards-tab-mine">

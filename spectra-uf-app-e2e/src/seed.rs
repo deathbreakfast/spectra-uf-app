@@ -8,10 +8,12 @@ use serde::Deserialize;
 use serde_json::json;
 use spectra::{try_log_event_at, try_record_gauge_at};
 use spectra_backend::dashboards::{
-    store, ChartKind, DashboardError, Layout, Panel, PanelSource, Section, TableOpts, Variable,
+    sharing, store, ChartKind, DashboardError, Layout, Panel, PanelSource, Principal, Section,
+    TableOpts, Variable,
 };
 use spectra_backend::{dashboard_presets, spectra_query_permission_name};
 
+use crate::e2e_schemas::E2E_ORDERS_TABLE;
 use crate::e2e_spectra::e2e_spectra;
 use crate::e2e_valence::{
     e2e_admin_valence, e2e_fixtures, E2E_EMPTY_EVENT_TABLE, E2E_EMPTY_METRIC_NAME, E2E_EVENT_TABLE,
@@ -134,6 +136,11 @@ pub(crate) async fn ensure_seed_query_permissions(admin: &valence::Valence) -> R
     ensure_named_query_perm(admin, E2E_EMPTY_EVENT_TABLE)
         .await
         .map_err(|code| format!("{E2E_EMPTY_EVENT_TABLE}: {code}"))?;
+    // Teammate reads the metric but never the orders table, so the shared story dashboard
+    // opens with exactly one locked panel.
+    grant_table_query_perm(admin, "teammate", E2E_METRIC_NAME)
+        .await
+        .map_err(|code| format!("teammate {E2E_METRIC_NAME}: {code}"))?;
     // Dashboard preset metrics come from platform kits this host does not link.
     for metric in preset_metrics() {
         ensure_named_query_perm(admin, metric)
@@ -141,6 +148,29 @@ pub(crate) async fn ensure_seed_query_permissions(admin: &valence::Valence) -> R
             .map_err(|code| format!("{metric}: {code}"))?;
     }
     Ok(())
+}
+
+/// Orders with a personal field, for the masked table panel story.
+fn seed_order_rows(recent: chrono::DateTime<Utc>) {
+    for (i, (status, region, email)) in [
+        ("paid", "eu-west", "ines@example.com"),
+        ("failed", "eu-west", "daniel@example.com"),
+        ("paid", "us-east", "rosa@example.com"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        try_log_event_at(
+            E2E_ORDERS_TABLE,
+            &json!({
+                "order_id": format!("e2e-order-{i}"),
+                "status": status,
+                "region": region,
+                "customer_email": email,
+            }),
+            recent - chrono::Duration::minutes(i64::try_from(i).unwrap_or(0)),
+        );
+    }
 }
 
 async fn seed_spectra_rows(
@@ -158,6 +188,7 @@ async fn seed_spectra_rows(
             grant_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;
             grant_table_query_perm(&admin, "admin", E2E_EMPTY_METRIC_NAME).await?;
             grant_table_query_perm(&admin, "admin", E2E_EMPTY_EVENT_TABLE).await?;
+            grant_table_query_perm(&admin, "admin", E2E_ORDERS_TABLE).await?;
             for metric in preset_metrics() {
                 grant_table_query_perm(&admin, "admin", metric).await?;
             }
@@ -170,6 +201,7 @@ async fn seed_spectra_rows(
             revoke_table_query_perm(&admin, "admin", E2E_METRIC_NAME).await?;
             revoke_table_query_perm(&admin, "admin", E2E_EMPTY_METRIC_NAME).await?;
             revoke_table_query_perm(&admin, "admin", E2E_EMPTY_EVENT_TABLE).await?;
+            revoke_table_query_perm(&admin, "admin", E2E_ORDERS_TABLE).await?;
             for metric in preset_metrics() {
                 revoke_table_query_perm(&admin, "admin", metric).await?;
             }
@@ -261,6 +293,7 @@ async fn seed_spectra_rows(
             bulk_start - chrono::Duration::seconds(i64::from(i)),
         );
     }
+    seed_order_rows(recent);
     try_record_gauge_at(E2E_METRIC_NAME, &[("host", "e2e")], 42.0, recent);
     // Seed every dashboard metric except the Photon backlog and Valence wall time, so the
     // specs can see both a charted panel and an empty one.
@@ -457,6 +490,79 @@ async fn fresh_dashboard_id() -> Result<String, StatusCode> {
     Ok(dashboard.id)
 }
 
+/// Title of the dashboard admin shares with teammate for the locked-panel story.
+pub const SHARED_STORY_DASHBOARD_TITLE: &str = "Sign-in fixes";
+
+static SHARED_STORY_DASHBOARD_ID: tokio::sync::OnceCell<String> =
+    tokio::sync::OnceCell::const_new();
+
+/// An admin-owned dashboard shared with teammate as a viewer: one panel on the orders table,
+/// which teammate can't read, and one on the metric, which teammate can.
+async fn shared_story_dashboard_id() -> Result<String, StatusCode> {
+    SHARED_STORY_DASHBOARD_ID
+        .get_or_try_init(|| async {
+            let admin = e2e_admin_valence();
+            let fail = |err: DashboardError| {
+                log::error!("e2e seed: shared story dashboard failed: {err}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            let created = store::create(
+                &admin,
+                SHARED_STORY_DASHBOARD_TITLE,
+                "Sign-in fixes as they land.",
+                None,
+            )
+            .await
+            .map_err(fail)?;
+            let mut orders = checkout_panel(
+                "orders",
+                "Orders by status",
+                PanelSource::EventTable {
+                    table: E2E_ORDERS_TABLE.into(),
+                },
+                ChartKind::Bar,
+                (0, 0, 6),
+            );
+            orders.group_by = vec!["status".into()];
+            let counter = checkout_panel(
+                "counter",
+                "Smoke counter",
+                PanelSource::Metric {
+                    metric: E2E_METRIC_NAME.into(),
+                },
+                ChartKind::TimeSeries,
+                (0, 6, 6),
+            );
+            let mut dashboard = created.clone();
+            dashboard.sections = vec![Section {
+                id: "signin".into(),
+                title: "Sign-in".into(),
+                collapsed: false,
+                panels: vec![orders, counter],
+            }];
+            store::save(
+                &admin,
+                &dashboard,
+                created.version,
+                Some("Seed panels"),
+                None,
+            )
+            .await
+            .map_err(fail)?;
+            sharing::share(
+                &admin,
+                &created.id,
+                &[],
+                &[Principal::User("teammate".into())],
+            )
+            .await
+            .map_err(fail)?;
+            Ok(created.id)
+        })
+        .await
+        .cloned()
+}
+
 pub async fn seed_data(
     session: tower_sessions::Session,
     Json(body): Json<SeedRequest>,
@@ -468,6 +574,7 @@ pub async fn seed_data(
 
     seed_spectra_rows(kind, body.skip_data, body.bulk_events).await?;
     let checkout_dashboard_id = checkout_dashboard_id().await?;
+    let shared_story_dashboard_id = shared_story_dashboard_id().await?;
     let fresh_dashboard_id = if body.fresh_dashboard {
         Some(fresh_dashboard_id().await?)
     } else {
@@ -488,6 +595,7 @@ pub async fn seed_data(
             "seed_metric_value": 42.0,
             "checkout_dashboard_id": checkout_dashboard_id,
             "fresh_dashboard_id": fresh_dashboard_id,
+            "shared_story_dashboard_id": shared_story_dashboard_id,
         }
     })))
 }

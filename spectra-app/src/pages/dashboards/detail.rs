@@ -399,9 +399,13 @@ fn DashboardBody(
                 on_delete=Callback::new(move |()| delete_open.set(true))
                 old_version=is_old
             />
-            {sections.into_iter().map(|section| view! {
-                <DashboardSection section=section />
-            }).collect_view()}
+            <div id="spectra-dashboard-panels">
+                <Flex vertical=true gap=SpacingSize::Size160.flex_gap()>
+                    {sections.into_iter().map(|section| view! {
+                        <DashboardSection section=section />
+                    }).collect_view()}
+                </Flex>
+            </div>
         </Flex>
         <DuplicateDialog
             open=duplicate_open

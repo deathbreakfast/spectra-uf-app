@@ -20,6 +20,8 @@ export type SeedFixtures = {
   checkout_dashboard_id: string;
   /** Set when the seed asked for `freshDashboard`. */
   fresh_dashboard_id: string | null;
+  /** Admin-owned, shared with teammate: one panel teammate can't read, one it can. */
+  shared_story_dashboard_id: string;
 };
 
 export type SeedResponse = {
@@ -203,6 +205,48 @@ const SPECTRA_HELP_STEPS_SEEN = [
     route: "/spectra/metric/:name/explore",
     feature_highlight: "spectra-metric-nav",
     spotlight: "spectra-nav",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards",
+    feature_highlight: "spectra-dashboards-tabs",
+    spotlight: "spectra-dashboards-tabs",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards",
+    feature_highlight: "spectra-dashboards-new",
+    spotlight: "spectra-dashboards-new",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards",
+    feature_highlight: "spectra-dashboards-nav",
+    spotlight: "spectra-nav",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards/:id",
+    feature_highlight: "spectra-dashboard-toolbar",
+    spotlight: "spectra-dashboard-toolbar",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards/:id",
+    feature_highlight: "spectra-dashboard-panels",
+    spotlight: "spectra-dashboard-panels",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards/:id/edit",
+    feature_highlight: "spectra-dashboard-grid",
+    spotlight: "spectra-dashboard-grid",
+    replay: false,
+  },
+  {
+    route: "/spectra/dashboards/:id/edit",
+    feature_highlight: "spectra-dashboard-add-panel",
+    spotlight: "spectra-dashboard-add-panel",
     replay: false,
   },
 ] as const;

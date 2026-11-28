@@ -5,6 +5,7 @@
 //! `inventory` submissions survive linking.
 
 mod callsite_graph;
+mod dashboards;
 mod event_explore;
 mod home;
 mod metric_explore;
