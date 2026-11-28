@@ -143,7 +143,10 @@ pub mod generated;
 mod query_live;
 pub mod query_url;
 
-pub use callsite_graph::{execute_callsite_graph, fold_callsites, CallsiteGraph, EmitSite};
+pub use callsite_graph::{
+    execute_callsite_graph, fold_callsites, fold_metric_callsites, CallsiteGraph, CallsiteScope,
+    EmitSite, EmptyReason, SiteKind,
+};
 
 pub use dashboard::{
     dashboard_catalog_summary, DashboardCatalogSummary, DEFAULT_RECENT_SCHEMA_LIMIT,

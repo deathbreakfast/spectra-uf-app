@@ -31,8 +31,8 @@
 //!   Owners and editors change one on [`DashboardEditPage`]: a twelve-column grid with drag,
 //!   resize and keyboard moves, sections, text panels and variables, saved with
 //!   [`server::save_dashboard`] against the version the edit started from.
-//! - **Callsite graph** — [`CallsiteGraphPage`] links the source lines that logged event rows to
-//!   the tables they wrote, via [`get_callsite_graph`]. [Get started](#trace-emit-sites)
+//! - **Callsite graph** — [`CallsiteGraphPage`] links the source lines that wrote event rows
+//!   and metric points to the tables and metrics they wrote, via [`get_callsite_graph`]. [Get started](#trace-emit-sites)
 //! - **Server function wrappers** — [`mod@server`] Higgs `#[server]` fns, per-table Gauge
 //!   checks via [`require_spectra_query`], and re-exports of [`spectra_backend`] helpers.
 //! - **Permission manifest** — [`SpectraPermission`] and [`SPECTRA_QUERY_PERMISSION`] for
@@ -241,17 +241,18 @@
 //!
 //! ## Trace emit sites
 //!
-//! Generated `*Logger` helpers stamp each event row with the `file` and `line` of the call that
-//! wrote it. [`CallsiteGraphPage`] at `/spectra/graph` folds the newest rows of every event table
-//! the operator may query into one node per `file:line`, drawn beside the table it writes, with a
-//! row count per node and a full list below. A 1h, 6h, 24h, or 7d window sets how far back the
-//! scan reaches. Open this route to find which code path is filling a table.
+//! Spectra stamps each event row and each metric point from a generated `*Recorder` with the
+//! `file`, `line` and module of the call that wrote it. [`CallsiteGraphPage`] at `/spectra/graph`
+//! folds the newest rows of every event table and the points of every metric the operator may
+//! query into one node per `file:line`, with an arrow to the table it writes (yellow) or the
+//! metric it records (blue), a row or point count per node, and a full list below. A 1h, 6h,
+//! 24h, or 7d window sets how far back the scan reaches, and Show narrows the graph to tables or
+//! metrics. Open this route to find which code path is filling a table or moving a metric.
 //!
 //! **Prerequisites:** Routes mounted; `QueryTable`; per-table Gauge `spectra.query.{table}` for
-//! each table that should appear; rows written through a generated logger. Rows written any other
-//! way have no callsite and are counted in a notice, not drawn. Metrics carry no callsite, so they
-//! never appear. Each table contributes at most its newest 1000 rows, and the page says when a
-//! table had more.
+//! each table or metric that should appear. Rows with no callsite are counted in a notice, not
+//! drawn; metric points without one (gauges, direct `try_record_*` calls) are skipped. Each table
+//! contributes at most its newest 1000 rows, and the page says when a table had more.
 //!
 //! ```rust,ignore
 //! use spectra_app::{get_callsite_graph, CallsiteGraphPage};
@@ -259,12 +260,13 @@
 //! let _page: CallsiteGraphPage;
 //! let graph = get_callsite_graph(24).await?;
 //! for site in &graph.sites {
-//!     println!("{}:{} wrote {} rows to {}", site.file, site.line, site.count, site.table);
+//!     println!("{}:{} wrote {} to {}", site.file, site.line, site.count, site.target);
 //! }
 //! ```
 //!
-//! On success `sites` is sorted by file, line, then table, and `tables` lists each table that has
-//! at least one site. With no Spectra backend installed the graph comes back empty.
+//! On success `sites` is sorted by file, line, kind, then target; `tables` and `metrics` list
+//! each target that has at least one site, and `hidden_tables` names the tables the caller
+//! can't query. An empty graph says why in `empty`: no backend, no grants, or nothing logged.
 //!
 //! ## Where to look next
 //!

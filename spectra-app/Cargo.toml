@@ -46,6 +46,7 @@ inventory = { workspace = true, optional = true }
 orbital-datatable = { workspace = true, default-features = false }
 orbital-charts = { workspace = true, default-features = false }
 orbital-paging = { workspace = true }
+orbital-graph = { workspace = true, default-features = false }
 turf.workspace = true
 
 spectra-core = { workspace = true }
@@ -65,6 +66,7 @@ hydrate = [
     "lepton-shell/hydrate",
     "orbital-datatable/hydrate",
     "orbital-charts/hydrate",
+    "orbital-graph/hydrate",
     "dep:uf-product",
     "uf-product/hydrate",
     "uf-help/hydrate",
@@ -80,6 +82,7 @@ ssr = [
     "lepton-shell/ssr",
     "orbital-datatable/ssr",
     "orbital-charts/ssr",
+    "orbital-graph/ssr",
     "dep:higgs",
     "higgs/ssr",
     "dep:gauge",

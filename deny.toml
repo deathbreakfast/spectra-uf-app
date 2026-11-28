@@ -62,6 +62,8 @@ allow-git = [
     "https://github.com/unified-field-dev/quark",
     "https://github.com/unified-field-dev/record-history",
     "https://github.com/unified-field-dev/spectra",
+    # The in-flight spectra build branch; dropped when spectra lands upstream.
+    "https://github.com/deathbreakfast/spectra",
     "https://github.com/unified-field-dev/uf-notifications",
     "https://github.com/unified-field-dev/unified-field-product",
     "https://github.com/unified-field-dev/valence",

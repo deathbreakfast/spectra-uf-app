@@ -110,8 +110,8 @@ wasm-bindgen = "=0.2.126"
 web-sys = { version = "=0.3.103", features = ["CssStyleDeclaration", "Document", "DomRect", "Element", "EventTarget", "HtmlElement", "MediaQueryList", "Node", "Storage", "Window"] }
 uuid = { version = "1", features = ["v4"] }
 
-spectra-core = { package = "uf-spectra-core", git = "https://github.com/unified-field-dev/spectra", branch = "main", default-features = false }
-spectra = { package = "uf-spectra", git = "https://github.com/unified-field-dev/spectra", branch = "main", default-features = false, features = ["mem"] }
+spectra-core = { package = "uf-spectra-core", git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1", default-features = false }
+spectra = { package = "uf-spectra", git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1", default-features = false, features = ["mem"] }
 gauge = { git = "https://github.com/unified-field-dev/gauge", branch = "main", default-features = false }
 higgs = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
 higgs-host = { git = "https://github.com/unified-field-dev/higgs", branch = "main", default-features = false }
@@ -125,6 +125,7 @@ orbital-macros = { git = "https://github.com/unified-field-dev/orbital", branch 
 orbital-datatable = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-charts = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 orbital-paging = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
+orbital-graph = { git = "https://github.com/unified-field-dev/orbital", branch = "main", default-features = false }
 
 # Shared with embedded host / other uf-apps (avoids lockfile path collisions).
 uf-integrations = { git = "https://github.com/unified-field-dev/unified-field-product", branch = "main", default-features = false }
@@ -138,6 +139,15 @@ inventory = "0.3"
 
 
 
+
+# Gauge, uf-product and lepton-shell depend on the uf-dev spectra; resolve them to the same
+# spectra the workspace uses so the process has one schema registry and one router.
+[patch."https://github.com/unified-field-dev/spectra"]
+uf-spectra = { git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1" }
+uf-spectra-core = { git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1" }
+spectra-macros = { git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1" }
+spectra-runtime = { git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1" }
+spectra-backend-mem = { git = "https://github.com/deathbreakfast/spectra", branch = "feat/spectra-1" }
 
 # Unify crates.io uf-valence / chronon / orbital onto the git tree.
 [patch.crates-io]
@@ -165,6 +175,7 @@ orbital-base-components = { git = "https://github.com/unified-field-dev/orbital"
 orbital-primitives = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-theme = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-paging = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
+orbital-graph = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-motion = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-discussion = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }
 orbital-history = { git = "https://github.com/unified-field-dev/orbital", branch = "main" }

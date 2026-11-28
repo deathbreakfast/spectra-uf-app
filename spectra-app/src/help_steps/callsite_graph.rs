@@ -24,6 +24,25 @@ pub fn SpectraCallsiteWindowHelp() -> impl IntoView {
     )
 }
 
+/// Show toggle: tables, metrics or both.
+#[help_spotlight_step(
+    route = "/spectra/graph",
+    feature_highlight = "spectra-callsite-show",
+    title = "Tables and metrics",
+    spotlight = "spectra-callsite-show",
+    position = "bottom",
+    order = 15
+)]
+#[component]
+pub fn SpectraCallsiteShowHelp() -> impl IntoView {
+    help_stack(
+        "help-step-spectra-callsite-show",
+        "Show narrows the graph to event tables or metrics when you're looking for one kind of writer.",
+        None,
+        &[],
+    )
+}
+
 /// The graph itself.
 #[help_spotlight_step(
     route = "/spectra/graph",
@@ -37,8 +56,12 @@ pub fn SpectraCallsiteWindowHelp() -> impl IntoView {
 pub fn SpectraCallsiteGraphHelp() -> impl IntoView {
     help_stack(
         "help-step-spectra-callsite-graph",
-        "Each row on the left is a source line that logged events. The line on its right points to the table it wrote.",
-        Some("The badge is how many rows that line wrote in the window."),
-        &["Click a table name to explore its rows"],
+        "Each box on the left is a line of code. Its arrow points to the table it writes or the metric it records.",
+        Some("The count is rows for a table and points for a metric, within the window."),
+        &[
+            "Yellow: event table",
+            "Blue: metric",
+            "Open a table or metric from All emit sites",
+        ],
     )
 }

@@ -105,6 +105,12 @@ const SPECTRA_HELP_STEPS_SEEN = [
   },
   {
     route: "/spectra/graph",
+    feature_highlight: "spectra-callsite-show",
+    spotlight: "spectra-callsite-show",
+    replay: false,
+  },
+  {
+    route: "/spectra/graph",
     feature_highlight: "spectra-callsite-graph",
     spotlight: "spectra-callsite-graph",
     replay: false,

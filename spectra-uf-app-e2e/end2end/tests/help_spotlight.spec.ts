@@ -112,4 +112,29 @@ test.describe("help-spotlight", () => {
     });
     await completeVisibleTour(page);
   });
+
+  test("help-spotlight-callsite-graph-green", async ({ page }) => {
+    await seedAuth(page, "admin", { help_tour: true });
+    await page.goto("/spectra/graph", { waitUntil: "domcontentloaded" });
+    await waitForHydrated(page);
+    const next = page
+      .locator('[data-testid="spotlight-footer"]:visible')
+      .getByTestId("spotlight-tour-next");
+    // Pick a window, then Tables and metrics, then Read the graph.
+    for (const step of [
+      "help-step-spectra-callsite-window",
+      "help-step-spectra-callsite-show",
+      "help-step-spectra-callsite-graph",
+    ]) {
+      await expect(page.getByTestId(step)).toBeVisible({ timeout: 60_000 });
+      if (step !== "help-step-spectra-callsite-graph") {
+        await next.evaluate((el: HTMLElement) => el.click());
+      }
+    }
+    await expect(page.getByTestId("help-step-spectra-callsite-graph")).toContainText(
+      "Yellow: event table",
+    );
+    await completeVisibleTour(page);
+    await expect(page.getByTestId("help-step-spectra-callsite-graph")).toHaveCount(0);
+  });
 });
