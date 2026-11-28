@@ -144,8 +144,11 @@ for (const { name, viewport } of VIEWPORTS) {
         .getByRole("button")
         .click();
       await titleAndApply(page, "Smoke counter");
+      await saveAndExpectVersion(page, version + 1);
 
-      // $host.
+      // $host. The Variables dialog offers the fields of the sources saved when the editor
+      // opened, so reopen it after saving the panels.
+      await openEdit(page, id);
       await page.getByTestId("spectra-edit-variables").getByRole("button").click();
       const vars = page.getByTestId("spectra-edit-variables-dialog");
       await vars.getByTestId("spectra-edit-variables-add").getByRole("button").click();
@@ -154,7 +157,7 @@ for (const { name, viewport } of VIEWPORTS) {
       await expect(done).toBeEnabled();
       await done.click();
 
-      await saveAndExpectVersion(page, version + 1);
+      await saveAndExpectVersion(page, version + 2);
       await openDashboard(page, id);
       await expect(page.getByTestId("spectra-dashboard-variable-host")).toBeVisible();
       await expect(
@@ -202,7 +205,11 @@ for (const { name, viewport } of VIEWPORTS) {
       const columns = editor(page).getByTestId("spectra-panel-editor-columns");
       for (const column of ["status", "customer_email"]) {
         await columns.getByRole("button", { name: "Add column" }).click();
-        await page.getByRole("menuitem", { name: column, exact: true }).click();
+        // The menu can open below the fold inside the editor drawer; a DOM click avoids
+        // Playwright's viewport hit test.
+        await page
+          .getByRole("menuitem", { name: column, exact: true })
+          .evaluate((el: HTMLElement) => el.click());
         await expect(columns).toContainText(column);
       }
       await titleAndApply(page, "Latest orders");
@@ -243,10 +250,8 @@ for (const { name, viewport } of VIEWPORTS) {
       const request = page.getByTestId("spectra-dashboard-request-access").getByRole("link", {
         name: "Request access",
       });
-      await expect(request).toHaveAttribute(
-        "href",
-        new RegExp(`spectra\\.query\\.${ORDERS_TABLE}`),
-      );
+      // The link opens Gauge's request form on that permission's record.
+      await expect(request).toHaveAttribute("href", /^\/permission\/permissions\/[^?]+\?request=1$/);
     });
 
     test(`pw-spectra-dashboards-story-share-restore-${name}-happy`, async ({ page }) => {

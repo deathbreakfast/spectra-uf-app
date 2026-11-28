@@ -122,6 +122,12 @@ test.describe("help-spotlight", () => {
     });
     await expect(page.locator("#spectra-dashboards-tabs")).toHaveCount(1);
     await expect(page.locator("#spectra-dashboards-new")).toHaveCount(1);
+    // The nav step rings the left menu, so open it (the tour skips a hidden target).
+    const expand = page.getByRole("button", { name: "Expand navigation" });
+    if (await expand.isVisible().catch(() => false)) {
+      await expand.evaluate((el: HTMLElement) => el.click());
+    }
+    await expect(page.locator("#spectra-nav")).toBeVisible();
 
     const next = page
       .locator('[data-testid="spotlight-footer"]:visible')
