@@ -7,7 +7,7 @@ import { test, expect, seedAuth, waitForHydrated } from "./fixtures";
 
 const EVENT_TABLE = "platform_smoke_event";
 const METRIC = "platform_smoke_counter";
-const ORDERS_TABLE = "e2e_checkout_orders";
+const ORDERS_TABLE = "shop_orders";
 const GROUP = "Checkout team";
 
 const VIEWPORTS = [

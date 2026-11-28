@@ -5,12 +5,15 @@
 use spectra::spectra_schema;
 
 /// Checkout orders with one personal field, so table panels have something to mask.
-pub const E2E_ORDERS_TABLE: &str = "e2e_checkout_orders";
+///
+/// Named to sort after `platform_smoke_event`: Home lists the first five schemas by name, and
+/// the home spec expects the smoke table among them.
+pub const E2E_ORDERS_TABLE: &str = "shop_orders";
 
 spectra_schema! {
     E2eCheckoutOrder {
         store: "default",
-        table: "e2e_checkout_orders",
+        table: "shop_orders",
         version: "0.1.0",
         description: "Checkout orders for the dashboards stories",
         fields: [
